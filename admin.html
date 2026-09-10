@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EcaNotes.in | Owner Moderation Console</title>
+  <meta name="description" content="EcaNotes.in Owner Moderation Console - Review, edit, and verify student-contributed college study material.">
+  
+  <!-- Google Fonts: Plus Jakarta Sans & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="admin-body">
+
+  <!-- Top Admin Navigation Bar -->
+  <header class="admin-header">
+    <div class="admin-header-container">
+      <div class="admin-brand-wrap">
+        <a href="index.html" class="brand-logo" aria-label="EcaNotes.in Home">
+          <span class="logo-main">EcaNotes</span><span class="logo-tld">.in</span>
+        </a>
+        <span class="admin-badge">Owner Moderation Console</span>
+      </div>
+
+      <div class="admin-header-actions">
+        <div class="admin-sys-status">
+          <span class="sys-dot online"></span>
+          <span class="sys-text">Storage &amp; SQL Online</span>
+        </div>
+
+        <a href="index.html" class="btn-admin-nav-link" target="_blank" rel="noopener noreferrer">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          </svg>
+          View Live Website
+        </a>
+
+        <button type="button" class="btn-admin-logout" id="adminLogoutBtn" style="display: none;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          Sign Out
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================= -->
+  <!-- 1. AUTHENTICATION SECTION (If Logged Out)                -->
+  <!-- ========================================================= -->
+  <section class="admin-auth-section" id="adminAuthSection">
+    <div class="admin-auth-card">
+      <div class="auth-icon-wrap">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+      </div>
+
+      <h1 class="auth-title">Owner Portal Sign In</h1>
+      <p class="auth-subtitle">
+        Access the moderation queue to edit, verify, and publish student study material to EcaNotes.in.
+      </p>
+
+      <form id="adminLoginForm" class="admin-auth-form" novalidate>
+        <div class="auth-input-group">
+          <label for="adminEmailInput">Owner Email Address</label>
+          <input 
+            type="email" 
+            id="adminEmailInput" 
+            class="admin-auth-input" 
+            placeholder="Enter owner email"
+            required
+            autocomplete="email"
+          >
+        </div>
+
+        <div class="auth-input-group">
+          <label for="adminPasswordInput">Owner Password</label>
+          <input 
+            type="password" 
+            id="adminPasswordInput" 
+            class="admin-auth-input" 
+            placeholder="Enter password"
+            required
+            autocomplete="current-password"
+          >
+        </div>
+
+        <div class="admin-auth-error" id="adminLoginError" style="display: none;">
+          ⚠️ Invalid email or password. Please try again.
+        </div>
+
+        <button type="submit" class="btn-admin-auth-submit">
+          Sign In to Moderation Console &rarr;
+        </button>
+      </form>
+
+      <div class="auth-back-link">
+        <a href="index.html">&larr; Back to EcaNotes.in public site</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================= -->
+  <!-- 2. DASHBOARD SECTION (If Logged In)                      -->
+  <!-- ========================================================= -->
+  <main class="admin-dashboard-section" id="adminDashboardSection" style="display: none;">
+    <div class="admin-container">
+
+      <!-- Header Overview Banner -->
+      <div class="admin-overview-banner">
+        <div class="overview-text">
+          <h1 class="overview-title">Owner Moderation &amp; Publishing Portal</h1>
+          <p class="overview-desc">
+            Review submissions from students. You can change their <strong>Year, Subject, Resource/File, Type, Title, and Contributor Name</strong> before publishing them live to the website.
+          </p>
+        </div>
+
+        <!-- Live Stat Cards Grid -->
+        <div class="admin-stats-grid">
+          <div class="admin-stat-card highlight">
+            <div class="stat-icon">⏳</div>
+            <div class="stat-content">
+              <div class="stat-number" id="adminStatPending">0</div>
+              <div class="stat-label">Pending Uploads</div>
+            </div>
+          </div>
+
+          <div class="admin-stat-card highlight">
+            <div class="stat-icon">⭐</div>
+            <div class="stat-content">
+              <div class="stat-number" id="adminStatPendingReviews">0</div>
+              <div class="stat-label">Pending Reviews</div>
+            </div>
+          </div>
+
+          <div class="admin-stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-content">
+              <div class="stat-number" id="adminStatVerified">10</div>
+              <div class="stat-label">Live Verified Notes</div>
+            </div>
+          </div>
+
+          <div class="admin-stat-card">
+            <div class="stat-icon">📥</div>
+            <div class="stat-content">
+              <div class="stat-number" id="adminStatDownloads">14,930</div>
+              <div class="stat-label">Total Downloads</div>
+            </div>
+          </div>
+
+          <div class="admin-stat-card">
+            <div class="stat-icon">📚</div>
+            <div class="stat-content">
+              <div class="stat-number" id="adminStatSubjects">0</div>
+              <div class="stat-label">Dynamic Subjects</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Moderation Tabs Navigation -->
+      <nav class="admin-tabs-nav" aria-label="Admin Navigation Tabs">
+        <button type="button" class="admin-nav-tab active" data-target="pane-pending">
+          ⏳ Pending Uploads
+          <span class="admin-tab-badge" id="adminTabPendingBadge" style="display: none;">0</span>
+        </button>
+        <button type="button" class="admin-nav-tab" data-target="pane-reviews">
+          ⭐ Student Reviews
+          <span class="admin-tab-badge" id="adminTabReviewsBadge" style="display: none;">0</span>
+        </button>
+        <button type="button" class="admin-nav-tab" data-target="pane-verified">
+          ✅ Live Verified Resources
+        </button>
+        <button type="button" class="admin-nav-tab" data-target="pane-subjects">
+          📚 Manage Subjects
+        </button>
+        <button type="button" class="admin-nav-tab" data-target="pane-direct">
+          ➕ Direct Resource Publisher
+        </button>
+        <button type="button" class="admin-nav-tab" data-target="pane-sql">
+          🗄️ SQL Database Inspector
+        </button>
+      </nav>
+
+      <!-- TAB 1: PENDING UPLOADS (Full Field Moderation) -->
+      <section class="admin-tab-pane active" id="pane-pending">
+        <div class="pane-header">
+          <div>
+            <h2 class="pane-title">Pending Student Submissions Queue</h2>
+            <p class="pane-subtitle">
+              Carefully review each student upload. You have full permission to rename, change subject, assign year, adjust resource type, preview attached PDF, or replace the file before publishing.
+            </p>
+          </div>
+        </div>
+
+        <!-- Pending Cards List Container -->
+        <div class="mod-cards-container" id="adminPendingList">
+          <!-- Dynamically populated by admin.js -->
+        </div>
+
+        <!-- Empty State -->
+        <div class="mod-empty-state" id="adminEmptyPending" style="display: none;">
+          <div class="empty-icon">🎉</div>
+          <h3 class="empty-title">Queue is Clean!</h3>
+          <p class="empty-desc">
+            There are no pending student uploads awaiting verification right now. When a student contributes notes, assignments, or PYQs from the website, they will appear here instantly.
+          </p>
+          <a href="index.html#contribute" target="_blank" class="btn-empty-action">
+            Open Student Upload Form &rarr;
+          </a>
+        </div>
+      </section>
+
+      <!-- TAB 2: STUDENT REVIEWS MODERATION (Publish/Reject Queue) -->
+      <section class="admin-tab-pane" id="pane-reviews">
+        <div class="pane-header">
+          <div>
+            <h2 class="pane-title">⭐ Student Reviews Moderation</h2>
+            <p class="pane-subtitle">
+              Verify student ratings &amp; reviews before publishing them live. Only approved reviews appear on EcaNotes.in.
+            </p>
+          </div>
+        </div>
+
+        <!-- Pending Reviews Queue Section -->
+        <div style="margin-bottom: 36px;">
+          <h3 style="font-size: 1.05rem; font-weight: 700; color: #0F1E36; margin-bottom: 12px;">
+            Pending Student Reviews Awaiting Approval
+          </h3>
+          <div class="review-mod-grid" id="adminPendingReviewsList">
+            <!-- Dynamically populated by admin.js -->
+          </div>
+          <div class="mod-empty-state" id="adminEmptyPendingReviews" style="display: none;">
+            <div class="empty-icon">⭐</div>
+            <h3 class="empty-title">No Reviews Pending!</h3>
+            <p class="empty-desc">
+              All submitted student reviews have been moderated. When a student submits a new review, it will appear here for verification.
+            </p>
+          </div>
+        </div>
+
+        <!-- Published Reviews Management Table -->
+        <div style="margin-top: 36px; border-top: 1px solid #E2E8F0; padding-top: 24px;">
+          <div class="pane-header flex-between" style="margin-bottom: 14px;">
+            <div>
+              <h3 style="font-size: 1.05rem; font-weight: 700; color: #0F1E36;">
+                Live Published Reviews (<span id="adminPublishedReviewsCount">0</span>)
+              </h3>
+              <p class="pane-subtitle">These reviews are actively displayed on the website and counted in the community rating.</p>
+            </div>
+          </div>
+          <div class="admin-table-responsive">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th style="width: 50px;">#</th>
+                  <th>Student</th>
+                  <th>Branch &amp; Year</th>
+                  <th>Rating</th>
+                  <th>Review</th>
+                  <th style="width: 140px;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="adminPublishedReviewsTableBody">
+                <!-- Dynamically populated by admin.js -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: LIVE VERIFIED RESOURCES -->
+      <section class="admin-tab-pane" id="pane-verified">
+        <div class="pane-header flex-between">
+          <div>
+            <h2 class="pane-title">Live Verified Study Resources</h2>
+            <p class="pane-subtitle">
+              All resources currently active and available for college students on EcaNotes.in.
+            </p>
+          </div>
+          <div class="table-search-wrap">
+            <input 
+              type="search" 
+              id="adminVerifiedSearch" 
+              class="admin-search-input" 
+              placeholder="Search verified resources..."
+            >
+          </div>
+        </div>
+
+        <div class="admin-table-responsive">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th style="width: 50px;">#</th>
+                <th>Title &amp; File</th>
+                <th>Year</th>
+                <th>Subject</th>
+                <th>Type</th>
+                <th>Author</th>
+                <th style="width: 240px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="adminVerifiedTableBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TAB: MANAGE SUBJECTS (Dynamic Year-Linked Subjects) -->
+      <section class="admin-tab-pane" id="pane-subjects">
+        <div class="pane-header flex-between">
+          <div>
+            <h2 class="pane-title">📚 Dynamic Subjects Manager</h2>
+            <p class="pane-subtitle">
+              Add, edit, or delete subjects linked to academic years. When students or owners upload resources with a new subject (e.g. "EV"), it automatically registers here and in the public filter.
+            </p>
+          </div>
+        </div>
+
+        <!-- Add Subject Card -->
+        <div class="direct-publish-card" style="margin-bottom: 24px;">
+          <h3 style="font-size: 1rem; font-weight: 700; color: #0F1E36; margin-bottom: 12px;">➕ Add New Subject</h3>
+          <form id="adminAddSubjectForm" class="direct-form-grid" style="grid-template-columns: 2fr 1fr auto; align-items: end; gap: 12px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="newSubjectName">Subject Name *</label>
+              <input 
+                type="text" 
+                id="newSubjectName" 
+                class="mod-input" 
+                placeholder="e.g. EV, Data Structures, Robotics" 
+                required
+              >
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="newSubjectYear">Assigned Year *</label>
+              <select id="newSubjectYear" class="mod-select" required>
+                <option value="1st Year">1st Year</option>
+                <option value="2nd Year">2nd Year</option>
+                <option value="3rd Year">3rd Year</option>
+                <option value="4th Year">4th Year</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <button type="submit" class="btn-direct-submit" style="padding: 10px 20px; white-space: nowrap; height: 42px;">
+                ➕ Add Subject
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Year Filter Chips for Subject Management -->
+        <div class="pane-filter-bar" style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">
+          <button type="button" class="btn-filter-pill active" data-subject-year="All">All Years</button>
+          <button type="button" class="btn-filter-pill" data-subject-year="1st Year">1st Year</button>
+          <button type="button" class="btn-filter-pill" data-subject-year="2nd Year">2nd Year</button>
+          <button type="button" class="btn-filter-pill" data-subject-year="3rd Year">3rd Year</button>
+          <button type="button" class="btn-filter-pill" data-subject-year="4th Year">4th Year</button>
+        </div>
+
+        <!-- Subjects Table -->
+        <div class="admin-table-responsive">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th style="width: 40%;">Subject Name</th>
+                <th style="width: 20%;">Academic Year</th>
+                <th style="width: 20%;">Active Resources</th>
+                <th style="width: 20%; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="adminSubjectsTableBody">
+              <!-- Dynamically populated by admin.js -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TAB 3: DIRECT RESOURCE PUBLISHER -->
+      <section class="admin-tab-pane" id="pane-direct">
+        <div class="pane-header">
+          <div>
+            <h2 class="pane-title">Direct Resource Publisher</h2>
+            <p class="pane-subtitle">
+              As the owner, upload and publish verified notes, PYQs, and assignments directly without entering the pending queue.
+            </p>
+          </div>
+        </div>
+
+        <div class="direct-publish-card">
+          <form id="directPublishForm" class="direct-publish-form">
+            <div class="direct-form-grid">
+              <div class="form-group span-2">
+                <label for="directTitle">Resource Title *</label>
+                <input 
+                  type="text" 
+                  id="directTitle" 
+                  class="mod-input" 
+                  placeholder="e.g. Engineering Physics - Unit 2 Complete Wave Optics Notes" 
+                  required
+                >
+              </div>
+
+              <div class="form-group">
+                <label for="directAuthor">Author / Faculty / Contributor</label>
+                <input 
+                  type="text" 
+                  id="directAuthor" 
+                  class="mod-input" 
+                  placeholder="e.g. ECA Academic Team" 
+                  value="EcaNotes Academic Team"
+                >
+              </div>
+
+              <div class="form-group">
+                <label for="directYear">Academic Year *</label>
+                <select id="directYear" class="mod-select">
+                  <option value="1st Year">1st Year</option>
+                  <option value="2nd Year">2nd Year</option>
+                  <option value="3rd Year">3rd Year</option>
+                  <option value="4th Year">4th Year</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="directSubject">Subject *</label>
+                <select id="directSubject" class="mod-select">
+                  <!-- Dynamically populated based on directYear -->
+                </select>
+                <input 
+                  type="text" 
+                  id="directCustomSubject" 
+                  class="mod-input" 
+                  placeholder="Type new subject name (e.g. EV)..." 
+                  style="display: none; margin-top: 6px;"
+                >
+              </div>
+
+              <div class="form-group">
+                <label for="directType">Resource Type *</label>
+                <select id="directType" class="mod-select">
+                  <option value="Notes">Notes</option>
+                  <option value="PYQ">PYQ (Past Year Questions)</option>
+                  <option value="Assignment">Assignment Solutions</option>
+                  <option value="Practical Files">Practical Files</option>
+                  <option value="Handwritten Notes">Handwritten Notes</option>
+                  <option value="Formula Sheet">Formula Sheet</option>
+                  <option value="Reference Book">Reference Book</option>
+                  <option value="Study Material">Study Material</option>
+                </select>
+              </div>
+
+              <div class="form-group span-2">
+                <label for="directDesc">Resource Description / Syllabus Highlights</label>
+                <textarea 
+                  id="directDesc" 
+                  class="mod-textarea" 
+                  rows="3" 
+                  placeholder="Summary of formulas, theorems, and questions covered in this document..."
+                ></textarea>
+              </div>
+
+              <div class="form-group span-2">
+                <label>Attach PDF / Study Document *</label>
+                <div class="direct-drop-zone" id="directFileDropZone">
+                  <div class="drop-zone-icon">📁</div>
+                  <div class="drop-zone-text">Click or drag and drop a PDF, DOCX, or Image file here</div>
+                  <div class="drop-zone-hint">Supports up to 4MB (Stored persistently in Server Storage)</div>
+                  <input type="file" id="directFileInput" accept=".pdf,.docx,.png,.jpg,.jpeg" style="display: none;">
+                </div>
+                <div id="directFileSelected" class="file-selected-pill" style="display: none;"></div>
+              </div>
+            </div>
+
+            <div class="direct-submit-wrap">
+              <button type="submit" class="btn-direct-submit">
+                🚀 Publish Directly to Live Website
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- TAB 4: SQL DATABASE INSPECTOR -->
+      <section class="admin-tab-pane" id="pane-sql">
+        <div class="pane-header">
+          <div>
+            <h2 class="pane-title">SQL Database &amp; Storage Inspector</h2>
+            <p class="pane-subtitle" id="sqlStatusText">
+              Database Status: Active
+            </p>
+          </div>
+        </div>
+
+        <div class="sql-inspector-grid">
+          <div class="sql-box">
+            <div class="sql-box-header">
+              <span class="sql-tag">TABLE</span>
+              <h3>pending_uploads (Queue)</h3>
+            </div>
+            <pre class="sql-code-view" id="sqlPendingTableData">Loading...</pre>
+          </div>
+
+          <div class="sql-box">
+            <div class="sql-box-header">
+              <span class="sql-tag">TABLE</span>
+              <h3>verified_resources (Public)</h3>
+            </div>
+            <pre class="sql-code-view" id="sqlVerifiedTableData">Loading...</pre>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- EDIT SUBJECT MODAL -->
+  <div class="modal-overlay" id="editSubjectModal">
+    <div class="modal-dialog" style="max-width: 460px;">
+      <button type="button" class="modal-close-btn" id="closeEditSubjectModalBtn" aria-label="Close modal">&times;</button>
+      <h3 class="modal-title" style="margin-bottom: 8px;">✏️ Edit Subject</h3>
+      <p style="font-size: 0.8125rem; color: #64748B; margin-bottom: 20px;">
+        Update the subject name or reassign it to a different academic year. Changes automatically cascade to all linked resources.
+      </p>
+      <form id="editSubjectForm">
+        <input type="hidden" id="editSubjectId">
+        <div style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px;">
+          <div>
+            <label for="editSubjectName" class="mod-label" style="display: block; margin-bottom: 6px;">Subject Name *</label>
+            <input type="text" id="editSubjectName" class="mod-input" required>
+          </div>
+          <div>
+            <label for="editSubjectYear" class="mod-label" style="display: block; margin-bottom: 6px;">Academic Year *</label>
+            <select id="editSubjectYear" class="mod-select" required>
+              <option value="1st Year">1st Year</option>
+              <option value="2nd Year">2nd Year</option>
+              <option value="3rd Year">3rd Year</option>
+              <option value="4th Year">4th Year</option>
+            </select>
+          </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" class="btn-table-action preview" id="cancelEditSubjectBtn" style="padding: 8px 16px; font-size: 0.875rem;">Cancel</button>
+          <button type="submit" class="btn-direct-submit" style="padding: 8px 20px; font-size: 0.875rem;">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/api.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

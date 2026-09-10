@@ -1,0 +1,455 @@
+"""
+EcaNotes.in - Production SQLite Database Engine
+Handles:
+- Persistent relational storage for resources, reviews, admin accounts, and sessions.
+- Secure PBKDF2-HMAC-SHA256 password hashing with random salt.
+- Seed data initialization (including Practical Files and published reviews).
+"""
+
+import os
+import sqlite3
+import hashlib
+import secrets
+import time
+from datetime import datetime
+from pathlib import Path
+
+# Paths
+BASE_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = BASE_DIR / "data"
+DB_PATH = DATA_DIR / "ecanotes.db"
+UPLOADS_DIR = DATA_DIR / "uploads"
+
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def get_connection():
+    conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def hash_password(password: str, salt: str = None) -> tuple[str, str]:
+    if salt is None:
+        salt = secrets.token_hex(16)
+    pwd_hash = hashlib.pbkdf2_hmac(
+        'sha256',
+        password.encode('utf-8'),
+        salt.encode('utf-8'),
+        100000
+    ).hex()
+    return pwd_hash, salt
+
+
+def verify_password(password: str, pwd_hash: str, salt: str) -> bool:
+    expected_hash, _ = hash_password(password, salt)
+    return secrets.compare_digest(expected_hash, pwd_hash)
+
+
+def init_db():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # 1. Resources Table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS resources (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        year TEXT NOT NULL,
+        type TEXT NOT NULL,
+        author TEXT NOT NULL,
+        email TEXT,
+        file_path TEXT,
+        file_name TEXT NOT NULL,
+        file_size TEXT NOT NULL,
+        file_type TEXT NOT NULL,
+        downloads INTEGER DEFAULT 0,
+        description TEXT,
+        status TEXT DEFAULT 'pending',
+        created_at TEXT NOT NULL,
+        approved_at TEXT,
+        timestamp INTEGER NOT NULL
+    )
+    """)
+
+    # 2. Reviews Table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS reviews (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        branch TEXT NOT NULL,
+        year TEXT NOT NULL,
+        stars INTEGER NOT NULL,
+        review TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        created_at TEXT NOT NULL,
+        published_at TEXT,
+        timestamp INTEGER NOT NULL
+    )
+    """)
+
+    # 3. Admin Users Table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS admin_users (
+        id TEXT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        salt TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    )
+    """)
+
+    # 4. Admin Sessions Table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS admin_sessions (
+        token TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES admin_users (id)
+    )
+    """)
+
+    # 5. Subjects Table (Dynamic Year-Linked Subjects)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS subjects (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        year TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE(name, year)
+    )
+    """)
+
+    conn.commit()
+
+    # Seed Admin User if none exists
+    cursor.execute("SELECT COUNT(*) as cnt FROM admin_users")
+    if cursor.fetchone()["cnt"] == 0:
+        admin_email = os.environ.get("ADMIN_EMAIL", "owner@ecanotes.in").lower().strip()
+        admin_password = os.environ.get("ADMIN_PASSWORD", "admin123")
+        pwd_hash, salt = hash_password(admin_password)
+        cursor.execute(
+            "INSERT INTO admin_users (id, email, password_hash, salt, created_at) VALUES (?, ?, ?, ?, ?)",
+            ("admin-1", admin_email, pwd_hash, salt, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        )
+        conn.commit()
+        print(f"[DB] Initialized owner account for {admin_email}")
+
+    # Seed Initial Subjects if table is empty
+    cursor.execute("SELECT COUNT(*) as cnt FROM subjects")
+    if cursor.fetchone()["cnt"] == 0:
+        seed_subjects(conn)
+
+    # Seed Initial Resources if table is empty
+    cursor.execute("SELECT COUNT(*) as cnt FROM resources WHERE status = 'approved'")
+    if cursor.fetchone()["cnt"] == 0:
+        seed_resources(conn)
+
+    # Seed Initial Reviews if table is empty
+    cursor.execute("SELECT COUNT(*) as cnt FROM reviews WHERE status = 'published'")
+    if cursor.fetchone()["cnt"] == 0:
+        seed_reviews(conn)
+
+    # Automatically index all subjects from resources into subjects table
+    cursor.execute("SELECT DISTINCT subject, year FROM resources WHERE subject IS NOT NULL AND year IS NOT NULL")
+    existing_res_subjects = cursor.fetchall()
+    for r in existing_res_subjects:
+        ensure_subject(r["subject"], r["year"], conn)
+
+    conn.close()
+
+
+def seed_resources(conn):
+    from backend.storage import create_sample_pdf
+
+    now_str = datetime.now().strftime("%d/%m/%Y, %I:%M:%S %p")
+    now_ts = int(time.time() * 1000)
+
+    seeds = [
+        {
+            "id": "res-1",
+            "title": "Engineering Mathematics - I (Calculus & Linear Algebra)",
+            "subject": "Engineering Mathematics",
+            "year": "1st Year",
+            "type": "Handwritten Notes",
+            "author": "Aarav Sharma",
+            "downloads": 4820,
+            "description": "Comprehensive handwritten formulas, theorems, and solved semester questions for Matrices, Eigenvalues, and Multivariable Calculus.",
+            "file_name": "Engg_Maths_1_Complete.pdf",
+            "file_size": "4.2 MB"
+        },
+        {
+            "id": "res-2",
+            "title": "Data Structures & Algorithms Laboratory - Complete Practical File",
+            "subject": "Data Structures & Algorithms",
+            "year": "2nd Year",
+            "type": "Practical Files",
+            "author": "Vikram Malhotra",
+            "downloads": 3950,
+            "description": "Complete lab record with verified C++ programs, output screenshots, algorithm complexity analysis, and frequently asked viva questions.",
+            "file_name": "DSA_Lab_Practical_File_Complete.pdf",
+            "file_size": "5.4 MB"
+        },
+        {
+            "id": "res-3",
+            "title": "Engineering Physics 2024-25 End Semester Solved PYQs",
+            "subject": "Engineering Physics",
+            "year": "1st Year",
+            "type": "PYQ",
+            "author": "Dr. S. K. Gupta",
+            "downloads": 3120,
+            "description": "Last 5 years solved university question papers for Wave Optics, Quantum Mechanics, Lasers, and Fiber Optics with step-by-step solutions.",
+            "file_name": "Physics_Solved_PYQ_2020_2025.pdf",
+            "file_size": "3.8 MB"
+        },
+        {
+            "id": "res-4",
+            "title": "Digital Electronics & Logic Design Lab Practical File",
+            "subject": "Digital Electronics",
+            "year": "2nd Year",
+            "type": "Practical Files",
+            "author": "Neha Singhania",
+            "downloads": 2840,
+            "description": "Fully verified experiment sheets with circuit diagrams, truth tables, IC pinouts, and Boolean minimization lab outputs.",
+            "file_name": "Digital_Electronics_Lab_Record.pdf",
+            "file_size": "4.6 MB"
+        },
+        {
+            "id": "res-5",
+            "title": "Programming in C - Solved Assignment Sheets & Programs",
+            "subject": "Programming in C",
+            "year": "1st Year",
+            "type": "Assignment",
+            "author": "Rohan Patel",
+            "downloads": 2480,
+            "description": "50+ classic university assignment problems including recursion, dynamic memory allocation, pointers, and structures.",
+            "file_name": "Programming_in_C_Assignments.pdf",
+            "file_size": "2.9 MB"
+        },
+        {
+            "id": "res-6",
+            "title": "Operating Systems Practical Lab Manual & Shell Scripts",
+            "subject": "Operating Systems",
+            "year": "3rd Year",
+            "type": "Practical Files",
+            "author": "Aditya Verma",
+            "downloads": 2190,
+            "description": "Ready-to-submit OS lab manual with CPU scheduling simulations, Banker's algorithm, Page replacement, and Linux bash scripts.",
+            "file_name": "OS_Lab_Manual_and_Codes.pdf",
+            "file_size": "3.7 MB"
+        },
+        {
+            "id": "res-7",
+            "title": "Basic Electrical Engineering - Core Theory Notes",
+            "subject": "Basic Electrical Engineering",
+            "year": "1st Year",
+            "type": "Notes",
+            "author": "Prof. R. C. Rao",
+            "downloads": 1940,
+            "description": "Clear conceptual notes on KVL, KCL, Mesh/Nodal analysis, Thevenin's theorem, Single-phase AC circuits, and Three-phase systems.",
+            "file_name": "Basic_Electrical_Theory_Notes.pdf",
+            "file_size": "3.1 MB"
+        },
+        {
+            "id": "res-8",
+            "title": "Computer Networks Lab Record & Cisco Packet Tracer Files",
+            "subject": "Computer Networks",
+            "year": "3rd Year",
+            "type": "Practical Files",
+            "author": "Pooja Hegde",
+            "downloads": 1820,
+            "description": "Comprehensive practical file with IP subnetting, socket programming in Python/C, and Packet Tracer network topologies.",
+            "file_name": "CN_Practical_Lab_Record.pdf",
+            "file_size": "6.1 MB"
+        }
+    ]
+
+    cursor = conn.cursor()
+    for s in seeds:
+        pdf_path = create_sample_pdf(s["title"], s["subject"], s["year"], s["type"], s["author"], s["description"], s["file_name"])
+        cursor.execute("""
+            INSERT OR REPLACE INTO resources (
+                id, title, subject, year, type, author, email, file_path, file_name, file_size, file_type, downloads, description, status, created_at, approved_at, timestamp
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?, ?)
+        """, (
+            s["id"], s["title"], s["subject"], s["year"], s["type"], s["author"],
+            "contributor@ecanotes.in", str(pdf_path), s["file_name"], s["file_size"],
+            "application/pdf", s["downloads"], s["description"], now_str, now_str, now_ts
+        ))
+    conn.commit()
+    print(f"[DB] Seeded {len(seeds)} verified study resources.")
+
+
+def seed_reviews(conn):
+    seeds = [
+        {
+            "id": "rev-1",
+            "name": "Rohan Sharma",
+            "branch": "CSE",
+            "year": "1st Year",
+            "stars": 5,
+            "review": "EcaNotes made finding PYQs and notes much easier. I used it during my semester exams and it saved me a lot of time. Highly recommend for any engineering student.",
+            "created_at": "10/09/2026, 04:30:00 PM",
+            "timestamp": int(time.time() * 1000) - 3600000
+        },
+        {
+            "id": "rev-2",
+            "name": "Priya Patel",
+            "branch": "ECE",
+            "year": "2nd Year",
+            "stars": 5,
+            "review": "The handwritten notes and lab practical files are so detailed. Found Engineering Maths notes that explained concepts better than textbooks. Amazing platform!",
+            "created_at": "10/09/2026, 03:15:00 PM",
+            "timestamp": int(time.time() * 1000) - 7200000
+        },
+        {
+            "id": "rev-3",
+            "name": "Aditya Kumar",
+            "branch": "Civil",
+            "year": "1st Year",
+            "stars": 5,
+            "review": "I shared my own assignment notes and practical files. Within days students were already downloading them. Feels great to help peers across colleges.",
+            "created_at": "10/09/2026, 01:45:00 PM",
+            "timestamp": int(time.time() * 1000) - 10800000
+        },
+        {
+            "id": "rev-4",
+            "name": "Ananya Mishra",
+            "branch": "EEE",
+            "year": "3rd Year",
+            "stars": 5,
+            "review": "Used EcaNotes for mid-sem and end-sem preparation. The solved PYQs and lab records match our syllabus accurately. Thank you for building this!",
+            "created_at": "09/09/2026, 11:20:00 AM",
+            "timestamp": int(time.time() * 1000) - 86400000
+        },
+        {
+            "id": "rev-5",
+            "name": "Vignesh Krishnan",
+            "branch": "Mechanical",
+            "year": "1st Year",
+            "stars": 5,
+            "review": "I was struggling to find good notes and practicals for Engineering Chemistry. Found exactly what I needed here. The filters by year and type are super easy.",
+            "created_at": "09/09/2026, 09:10:00 AM",
+            "timestamp": int(time.time() * 1000) - 90000000
+        },
+        {
+            "id": "rev-6",
+            "name": "Shreya Nair",
+            "branch": "IT",
+            "year": "2nd Year",
+            "stars": 4,
+            "review": "Clean and distraction-free website. Found previous papers and practical files for my core subjects in minutes. Love the responsive layout.",
+            "created_at": "08/09/2026, 05:40:00 PM",
+            "timestamp": int(time.time() * 1000) - 172800000
+        }
+    ]
+
+    cursor = conn.cursor()
+    for r in seeds:
+        cursor.execute("""
+            INSERT OR REPLACE INTO reviews (
+                id, name, branch, year, stars, review, status, created_at, published_at, timestamp
+            ) VALUES (?, ?, ?, ?, ?, ?, 'published', ?, ?, ?)
+        """, (
+            r["id"], r["name"], r["branch"], r["year"], r["stars"], r["review"],
+            r["created_at"], r["created_at"], r["timestamp"]
+        ))
+    conn.commit()
+    print(f"[DB] Seeded {len(seeds)} published student reviews.")
+
+
+def seed_subjects(conn):
+    cursor = conn.cursor()
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    seeds = [
+        # 1st Year Core Subjects
+        ("sub-1-1", "Engineering Mathematics", "1st Year"),
+        ("sub-1-2", "Engineering Physics", "1st Year"),
+        ("sub-1-3", "Engineering Chemistry", "1st Year"),
+        ("sub-1-4", "Basic Electrical Engineering", "1st Year"),
+        ("sub-1-5", "Programming in C", "1st Year"),
+        ("sub-1-6", "Engineering Graphics", "1st Year"),
+        ("sub-1-7", "Environmental Science", "1st Year"),
+        ("sub-1-8", "Mechanical Engineering", "1st Year"),
+
+        # 2nd Year Core Subjects
+        ("sub-2-1", "Data Structures & Algorithms", "2nd Year"),
+        ("sub-2-2", "Digital Electronics", "2nd Year"),
+        ("sub-2-3", "Object Oriented Programming", "2nd Year"),
+        ("sub-2-4", "Discrete Mathematics", "2nd Year"),
+
+        # 3rd Year Core Subjects
+        ("sub-3-1", "Operating Systems", "3rd Year"),
+        ("sub-3-2", "Computer Networks", "3rd Year"),
+        ("sub-3-3", "Database Management Systems", "3rd Year"),
+        ("sub-3-4", "Software Engineering", "3rd Year"),
+
+        # 4th Year Core Subjects
+        ("sub-4-1", "Artificial Intelligence", "4th Year"),
+        ("sub-4-2", "Machine Learning", "4th Year"),
+        ("sub-4-3", "Cloud Computing", "4th Year")
+    ]
+
+    for sid, name, year in seeds:
+        cursor.execute("""
+            INSERT OR IGNORE INTO subjects (id, name, year, created_at)
+            VALUES (?, ?, ?, ?)
+        """, (sid, name, year, now_str))
+    conn.commit()
+    print(f"[DB] Seeded {len(seeds)} initial year-linked subjects.")
+
+
+def ensure_subject(name: str, year: str, conn=None):
+    """
+    Ensures a subject exists for a given year. If not present, automatically
+    inserts it with case-insensitive check and links it to that year.
+    """
+    if not name or not name.strip():
+        return None
+
+    clean_name = name.strip()
+    clean_year = (year or "1st Year").strip()
+    if clean_year == "All" or not clean_year:
+        clean_year = "1st Year"
+
+    should_close = False
+    if conn is None:
+        conn = get_connection()
+        should_close = True
+
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT * FROM subjects 
+        WHERE LOWER(name) = LOWER(?) AND year = ?
+    """, (clean_name, clean_year))
+    row = cursor.fetchone()
+
+    if row:
+        result = dict(row)
+        if should_close:
+            conn.close()
+        return result
+
+    # Create new dynamic subject linked to this year
+    sub_id = f"sub-{int(time.time() * 1000)}-{secrets.token_hex(2)}"
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute("""
+        INSERT INTO subjects (id, name, year, created_at)
+        VALUES (?, ?, ?, ?)
+    """, (sub_id, clean_name, clean_year, now_str))
+    conn.commit()
+
+    cursor.execute("SELECT * FROM subjects WHERE id = ?", (sub_id,))
+    row = cursor.fetchone()
+    result = dict(row) if row else None
+
+    if should_close:
+        conn.close()
+
+    print(f"[DB] Dynamically registered new subject: '{clean_name}' for '{clean_year}'")
+    return result
+

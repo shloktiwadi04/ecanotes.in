@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EcaNotes.in | College Study Material By Students For Students</title>
+  <meta name="description" content="Find notes, PYQs, assignments and handwritten study material made for college students. Free resources for 1st-year engineering and college subjects.">
+  
+  <!-- Google Fonts: Plus Jakarta Sans & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ========================================================= -->
+  <!-- 1. NAVBAR                                                 -->
+  <!-- ========================================================= -->
+  <header class="navbar-header" id="topHeader">
+    <div class="container nav-container">
+      <!-- Brand Logo -->
+      <a href="#home" class="brand-logo" aria-label="EcaNotes.in Home">
+        <span class="logo-main">EcaNotes</span><span class="logo-tld">.in</span>
+      </a>
+
+      <!-- Desktop Navigation Links -->
+      <nav class="nav-menu" id="navMenu" aria-label="Main Navigation">
+        <a href="#home" class="nav-link active" data-section="home">HOME</a>
+        <a href="#pyqs" class="nav-link" data-section="pyqs">PYQ'S</a>
+        <a href="#assignments" class="nav-link" data-section="assignments">ASSIGNMENT</a>
+        <a href="#about" class="nav-link" data-section="about">ABOUT US</a>
+      </nav>
+
+      <!-- Search Bar & Actions -->
+      <div class="nav-search-wrap">
+        <div class="nav-search-bar">
+          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input 
+            type="search" 
+            id="navSearchInput" 
+            class="nav-search-input" 
+            placeholder="Search notes, PYQs..." 
+            aria-label="Search study resources"
+            autocomplete="off"
+          >
+          <button type="button" id="clearSearchBtn" class="clear-search-btn" aria-label="Clear search" style="display: none;">&times;</button>
+        </div>
+
+        <!-- Owner Portal Button (Opens in New Tab) -->
+        <a href="admin.html" target="_blank" rel="noopener noreferrer" class="btn-owner-portal" id="ownerPortalBtn" aria-label="Open Owner Portal in new tab">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <span class="owner-btn-text">Owner Portal</span>
+          <span class="owner-pending-badge" id="ownerPendingBadge" style="display: none;">0</span>
+        </a>
+
+        <!-- Mobile Hamburger Button -->
+        <button class="hamburger-btn" id="hamburgerBtn" aria-label="Toggle mobile menu" aria-expanded="false" aria-controls="mobileDrawer">
+          <span class="bar"></span>
+          <span class="bar"></span>
+          <span class="bar"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Drawer Navigation -->
+    <div class="mobile-drawer" id="mobileDrawer" aria-hidden="true">
+      <div class="mobile-drawer-search">
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="search" id="mobileSearchInput" class="nav-search-input" placeholder="Search notes, PYQs..." aria-label="Search resources on mobile">
+      </div>
+      <nav class="mobile-nav-links">
+        <a href="#home" class="mobile-nav-link active" data-section="home">HOME</a>
+        <a href="#pyqs" class="mobile-nav-link" data-section="pyqs">PYQ'S</a>
+        <a href="#assignments" class="mobile-nav-link" data-section="assignments">ASSIGNMENT</a>
+        <a href="#about" class="mobile-nav-link" data-section="about">ABOUT US</a>
+        <a href="#resourcesDisplaySection" class="mobile-nav-link">STUDY RESOURCES</a>
+        <a href="#reviews" class="mobile-nav-link">REVIEWS</a>
+        <a href="#contribute" class="mobile-nav-link contribute-btn-mobile">Contribute Notes</a>
+        <a href="admin.html" target="_blank" rel="noopener noreferrer" class="mobile-owner-btn" id="mobileOwnerBtn">
+          🔐 Owner Portal
+          <span class="owner-pending-badge" id="mobilePendingBadge" style="display: none;">0</span>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- ========================================================= -->
+    <!-- 2. HERO SECTION                                           -->
+    <!-- ========================================================= -->
+    <section class="hero-section" id="home">
+      <div class="container hero-container">
+        <!-- Hero Left Column -->
+        <div class="hero-content">
+          <!-- Pill Badge -->
+          <div class="badge-pill hero-badge">
+            <span class="badge-icon">📚</span>
+            <span>Study Resources for 1st Year Students</span>
+          </div>
+
+          <!-- Main Hero Title -->
+          <h1 class="hero-title">
+            ECA Study Material,<br>
+            By the students<br>
+            <span class="highlight-students">for the students.</span>
+          </h1>
+
+          <!-- Supporting Text -->
+          <p class="hero-subtitle">
+            Find notes, PYQs, assignments and handwritten study material made for college students.
+          </p>
+
+          <!-- Action Buttons -->
+          <div class="hero-actions">
+            <a href="#resourcesDisplaySection" class="btn btn-primary" id="heroFindResourcesBtn">
+              Find My Resources &rarr;
+            </a>
+            <a href="#contribute" class="btn btn-outline" id="heroContributeBtn">
+              Contribute Notes
+            </a>
+          </div>
+
+          <!-- Hero Stats Row -->
+          <div class="hero-stats">
+            <div class="stat-item">
+              <span class="stat-number">500+</span>
+              <span class="stat-label">Study Resources</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-number">1st Year</span>
+              <span class="stat-label">Focus</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-number">Free</span>
+              <span class="stat-label">Always</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hero Right Column: Student Peer Hub Card -->
+        <div class="hero-card-wrapper">
+          <div class="peer-hub-card">
+            <!-- Card Header -->
+            <div class="peer-hub-header">
+              <div class="peer-hub-brand">
+                <div class="hub-icon-box">
+                  <span class="hub-icon-text">ECA</span>
+                </div>
+                <div class="hub-title-box">
+                  <h2 class="hub-title">Student Peer Hub</h2>
+                  <p class="hub-subtitle">Verified College Materials</p>
+                </div>
+              </div>
+              <div class="hub-tag-free">
+                <span class="status-dot"></span> 100% Free
+              </div>
+            </div>
+
+            <!-- 2x2 Feature Tiles -->
+            <div class="peer-hub-grid">
+              <div class="hub-tile" data-category="Handwritten Notes">
+                <span class="tile-icon">📄</span>
+                <div class="tile-text">
+                  <span class="tile-name">Handwritten Notes</span>
+                  <span class="tile-desc">Direct from top toppers</span>
+                </div>
+              </div>
+              <div class="hub-tile" data-category="PYQ">
+                <span class="tile-icon">📑</span>
+                <div class="tile-text">
+                  <span class="tile-name">Semester PYQs</span>
+                  <span class="tile-desc">Year-wise solved papers</span>
+                </div>
+              </div>
+              <div class="hub-tile" data-category="Assignment">
+                <span class="tile-icon">✍️</span>
+                <div class="tile-text">
+                  <span class="tile-name">Assignments</span>
+                  <span class="tile-desc">Lab & theory solutions</span>
+                </div>
+              </div>
+              <div class="hub-tile" data-category="Study Material">
+                <span class="tile-icon">🤝</span>
+                <div class="tile-text">
+                  <span class="tile-name">Peer Shared</span>
+                  <span class="tile-desc">Uploaded by students</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Highlighted Review Mini Card -->
+            <div class="hub-review-box">
+              <div class="hub-review-top">
+                <div class="hub-review-user">
+                  <div class="hub-avatar">RS</div>
+                  <span class="hub-username">Rohan S. (NIT Bhopal)</span>
+                </div>
+                <div class="hub-stars" aria-label="5 stars">
+                  ★★★★★
+                </div>
+              </div>
+              <p class="hub-quote">
+                &ldquo;Saved my semester prep! Verified notes & PYQs directly from senior students.&rdquo;
+              </p>
+            </div>
+
+            <!-- Card Action Button -->
+            <button type="button" class="btn btn-card-action" id="exploreMaterialsBtn">
+              Explore All 1st Year Materials &rarr;
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ========================================================= -->
+    <!-- 3. WHAT WE OFFER SECTION                                  -->
+    <!-- ========================================================= -->
+    <section class="section offer-section" id="offerSection">
+      <div class="container">
+        <!-- Section Header (Left-aligned matching Screenshot 5) -->
+        <div class="offer-header">
+          <div class="badge-pill">
+            <span>WHAT WE OFFER</span>
+          </div>
+          <h2 class="section-title">Everything You Need<br>to Study Better.</h2>
+          <p class="section-desc">
+            EcaNotes.in brings useful college study material together in one simple place, starting with resources for first-year students.
+          </p>
+        </div>
+
+        <!-- 4 Feature Cards Grid -->
+        <div class="offer-grid">
+          <!-- Card 1: Notes -->
+          <div class="offer-card" data-filter="Notes">
+            <div class="offer-icon-wrapper icon-notes">
+              <span class="offer-emoji">📚</span>
+            </div>
+            <h3 class="offer-card-title">Notes</h3>
+            <p class="offer-card-desc">
+              Clear, subject-wise study notes covering core topics from your semester syllabus.
+            </p>
+          </div>
+
+          <!-- Card 2: PYQs -->
+          <div class="offer-card" data-filter="PYQ">
+            <div class="offer-icon-wrapper icon-pyqs">
+              <span class="offer-emoji">📑</span>
+            </div>
+            <h3 class="offer-card-title">PYQs</h3>
+            <p class="offer-card-desc">
+              Previous year exam questions with answers to help you prepare smarter.
+            </p>
+          </div>
+
+          <!-- Card 3: Assignments -->
+          <div class="offer-card" data-filter="Assignment">
+            <div class="offer-icon-wrapper icon-assignments">
+              <span class="offer-emoji">✍️</span>
+            </div>
+            <h3 class="offer-card-title">Assignments</h3>
+            <p class="offer-card-desc">
+              Ready-to-reference assignments and solved problems for your academic submissions.
+            </p>
+          </div>
+
+          <!-- Card 4: Handwritten Notes -->
+          <div class="offer-card" data-filter="Handwritten Notes">
+            <div class="offer-icon-wrapper icon-handwritten">
+              <span class="offer-emoji">📝</span>
+            </div>
+            <h3 class="offer-card-title">Handwritten Notes</h3>
+            <p class="offer-card-desc">
+              Authentic handwritten material shared by students who've been in your shoes.
+            </p>
+          </div>
+        </div>
+
+        <!-- Expansion Banner -->
+        <div class="expansion-banner">
+          <div class="expansion-info">
+            <h3 class="expansion-title">Expanding beyond 1st year soon.</h3>
+            <p class="expansion-desc">Resources for 2nd, 3rd and 4th year are coming. Stay tuned.</p>
+          </div>
+          <div class="expansion-badges">
+            <span class="coming-badge">2nd Year</span>
+            <span class="coming-badge">3rd Year</span>
+            <span class="coming-badge">4th Year</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ========================================================= -->
+    <!-- 4. DYNAMIC RESOURCE LIST / PYQ & ASSIGNMENT SECTION       -->
+    <!-- ========================================================= -->
+    <section class="section resources-display-section" id="resourcesDisplaySection">
+      <div class="container">
+        <div class="resources-toolbar" id="resourcesToolbar">
+          <div class="toolbar-info">
+            <h2 class="resources-heading" id="currentViewHeading">Available Study Resources</h2>
+            <p class="resources-subtext" id="currentViewSubtext">
+              Showing curated verified materials for 1st Year students
+            </p>
+          </div>
+
+          <!-- Year, Subject and Type Filter Bar -->
+          <div class="toolbar-filters">
+            <div class="filter-dropdown-wrap">
+              <label for="yearFilter" class="filter-label">Year:</label>
+              <select id="yearFilter" class="filter-select">
+                <option value="1st Year" selected>1st Year</option>
+                <option value="2nd Year">2nd Year</option>
+                <option value="3rd Year">3rd Year</option>
+                <option value="4th Year">4th Year</option>
+                <option value="All">All Years</option>
+              </select>
+            </div>
+
+            <div class="filter-dropdown-wrap">
+              <label for="subjectFilter" class="filter-label">Subject:</label>
+              <select id="subjectFilter" class="filter-select">
+                <option value="All">All Subjects</option>
+              </select>
+            </div>
+            
+            <div class="quick-chips" id="quickChips">
+              <button class="chip active" data-chip="All">All</button>
+              <button class="chip" data-chip="Notes" id="chipNotes">Notes</button>
+              <button class="chip" data-chip="PYQ" id="chipPYQ">PYQs</button>
+              <button class="chip" data-chip="Assignment" id="chipAssignment">Assignments</button>
+              <button class="chip" data-chip="Practical Files" id="chipPractical">Practical Files</button>
+              <button class="chip" data-chip="Handwritten Notes">Handwritten</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Resource Grid -->
+        <div class="resources-grid" id="resourcesGrid" aria-live="polite">
+          <!-- Generated dynamically via script.js -->
+        </div>
+
+        <!-- No Results Fallback Message -->
+        <div class="no-resources-state" id="noResourcesState" style="display: none;">
+          <div class="empty-icon">🔍</div>
+          <h3>No resources found.</h3>
+          <p>Try searching with different keywords or clear your active filters.</p>
+          <button type="button" class="btn btn-outline" id="resetFiltersBtn">Reset All Filters</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Anchors for Direct Navbar Navigation -->
+    <div id="pyqs" class="nav-target-anchor" aria-hidden="true"></div>
+    <div id="assignments" class="nav-target-anchor" aria-hidden="true"></div>
+
+
+    <!-- ========================================================= -->
+    <!-- 6. RATINGS & REVIEWS SECTION                              -->
+    <!-- ========================================================= -->
+    <section class="section reviews-section" id="reviews">
+      <div class="container">
+        <!-- Section Header (Screenshot 4) -->
+        <div class="section-center-header">
+          <div class="badge-pill">
+            <span>RATINGS & REVIEWS</span>
+          </div>
+          <h2 class="section-title">Student Feedback & Overall Rating</h2>
+          <p class="section-desc">Real reviews from college students across India.</p>
+        </div>
+
+        <!-- Community Score & Review Form Container (Screenshot 4) -->
+        <div class="reviews-feedback-card">
+          <!-- Left Column: Community Score -->
+          <div class="community-score-col">
+            <span class="score-kicker">OVERALL COMMUNITY SCORE</span>
+            <div class="score-big-wrap">
+              <span class="score-val" id="avgRatingDisplay">4.8</span>
+              <span class="score-max">/ 5</span>
+            </div>
+            <div class="score-stars" id="avgStarsDisplay" aria-label="4.8 out of 5 stars">
+              ★★★★★
+            </div>
+            <p class="score-count-text" id="reviewCountDisplay">
+              Based on 6 verified student reviews
+            </p>
+          </div>
+
+          <!-- Right Column: Interactive Rating Form -->
+          <div class="rating-form-col">
+            <h3 class="form-title">Rate Your Experience</h3>
+            <p class="form-desc">
+              Have EcaNotes helped you prepare for exams? Share your rating below!
+            </p>
+
+            <form id="ratingForm" class="rating-form" novalidate>
+              <!-- Star Rating Interactive Selector -->
+              <div class="form-group">
+                <label class="form-label" id="ratingLabel">Select Rating *</label>
+                <div class="star-rating-selector" role="radiogroup" aria-labelledby="ratingLabel" id="starSelector">
+                  <button type="button" class="star-btn active" data-rating="1" aria-label="1 Star">★</button>
+                  <button type="button" class="star-btn active" data-rating="2" aria-label="2 Stars">★</button>
+                  <button type="button" class="star-btn active" data-rating="3" aria-label="3 Stars">★</button>
+                  <button type="button" class="star-btn active" data-rating="4" aria-label="4 Stars">★</button>
+                  <button type="button" class="star-btn active" data-rating="5" aria-label="5 Stars">★</button>
+                </div>
+                <input type="hidden" name="rating" id="selectedRating" value="5">
+                <span class="input-error-msg" id="ratingError">Please select a star rating</span>
+              </div>
+
+              <!-- Two Column Row for Name and Branch -->
+              <div class="form-row">
+                <div class="form-group col-half">
+                  <label for="reviewerName" class="visually-hidden">Your Name *</label>
+                  <input 
+                    type="text" 
+                    id="reviewerName" 
+                    name="name" 
+                    class="form-input" 
+                    placeholder="Your Name *" 
+                    required
+                  >
+                  <span class="input-error-msg" id="nameError">Please enter your name</span>
+                </div>
+                <div class="form-group col-half">
+                  <label for="reviewerBranch" class="visually-hidden">Branch *</label>
+                  <input 
+                    type="text" 
+                    id="reviewerBranch" 
+                    name="branch" 
+                    class="form-input" 
+                    placeholder="Branch (e.g. CSE, ECE) *" 
+                    required
+                  >
+                  <span class="input-error-msg" id="branchError">Please enter your branch</span>
+                </div>
+              </div>
+
+              <!-- Year Select Dropdown -->
+              <div class="form-group">
+                <label for="reviewerYear" class="visually-hidden">Year *</label>
+                <select id="reviewerYear" name="year" class="form-select" required>
+                  <option value="" disabled selected>Select Year *</option>
+                  <option value="1st Year">1st Year</option>
+                  <option value="2nd Year">2nd Year</option>
+                  <option value="3rd Year">3rd Year</option>
+                  <option value="4th Year">4th Year</option>
+                </select>
+                <span class="input-error-msg" id="yearError">Please select your year</span>
+              </div>
+
+              <!-- Review Textarea -->
+              <div class="form-group">
+                <label for="reviewerMessage" class="visually-hidden">How did EcaNotes help you? *</label>
+                <textarea 
+                  id="reviewerMessage" 
+                  name="review" 
+                  rows="3" 
+                  class="form-textarea" 
+                  placeholder="How did EcaNotes help you? *" 
+                  required
+                ></textarea>
+                <span class="input-error-msg" id="messageError">Please share your review</span>
+              </div>
+
+              <!-- Form Submit Button -->
+              <button type="submit" class="btn btn-submit-rating" id="submitRatingBtn">
+                Submit Rating &rarr;
+              </button>
+
+              <!-- Form Success Feedback -->
+              <div class="form-success-banner" id="reviewSuccessBanner" style="display: none;">
+                🎉 Thank you! Your review has been submitted for owner verification and will appear once approved.
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Student Reviews Grid -->
+        <div class="reviews-grid" id="reviewsGrid">
+          <!-- Reviews will be loaded dynamically from JavaScript -->
+        </div>
+
+        <!-- More Reviews Button (Reveals +4 reviews each time) -->
+        <div class="reviews-more-wrap" id="moreReviewsWrap">
+          <button type="button" class="btn-more-reviews" id="moreReviewsBtn">
+            More Reviews &rarr;
+          </button>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ========================================================= -->
+    <!-- 7. CONTRIBUTION / UPLOAD SECTION                          -->
+    <!-- ========================================================= -->
+    <section class="section contribute-section" id="contribute">
+      <div class="container">
+        <div class="section-center-header">
+          <div class="badge-pill">
+            <span>COMMUNITY CONTRIBUTION</span>
+          </div>
+          <h2 class="section-title">Have Useful Notes?</h2>
+          <p class="section-desc">
+            Help other students by sharing your notes, PYQs or study material with EcaNotes.
+          </p>
+        </div>
+
+        <div class="contribute-card-wrapper">
+          <form id="contributeForm" class="contribute-form" novalidate>
+            <div class="form-grid-2col">
+              <div class="form-group">
+                <label for="contribName" class="form-label">Your Name *</label>
+                <input type="text" id="contribName" class="form-input" placeholder="e.g. Aryan Verma" required>
+                <span class="input-error-msg" id="contribNameError">Please enter your name</span>
+              </div>
+
+              <div class="form-group">
+                <label for="contribEmail" class="form-label">Email Address *</label>
+                <input type="email" id="contribEmail" class="form-input" placeholder="e.g. aryan@college.edu" required>
+                <span class="input-error-msg" id="contribEmailError">Please enter a valid email</span>
+              </div>
+            </div>
+
+            <div class="form-grid-3col">
+              <div class="form-group">
+                <label for="contribYear" class="form-label">Year *</label>
+                <select id="contribYear" class="form-select" required>
+                  <option value="1st Year" selected>1st Year</option>
+                  <option value="2nd Year">2nd Year</option>
+                  <option value="3rd Year">3rd Year</option>
+                  <option value="4th Year">4th Year</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="contribSubject" class="form-label">Subject *</label>
+                <input type="text" id="contribSubject" list="subjectSuggestions" class="form-input" placeholder="e.g. Engineering Mathematics or EV" required autocomplete="off">
+                <datalist id="subjectSuggestions"></datalist>
+                <span class="input-error-msg" id="contribSubjectError">Please specify the subject</span>
+              </div>
+
+              <div class="form-group">
+                <label for="contribType" class="form-label">Resource Type *</label>
+                <select id="contribType" class="form-select" required>
+                  <option value="Notes">Notes</option>
+                  <option value="PYQ">PYQ</option>
+                  <option value="Assignment">Assignment</option>
+                  <option value="Practical Files">Practical Files</option>
+                  <option value="Handwritten Notes">Handwritten Notes</option>
+                  <option value="Study Material">Study Material</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="contribTitle" class="form-label">Resource Title / Topic *</label>
+              <input type="text" id="contribTitle" class="form-input" placeholder="e.g. Differential Equations & Matrices - Complete Unit 1" required>
+              <span class="input-error-msg" id="contribTitleError">Please provide a descriptive title</span>
+            </div>
+
+            <!-- Drag & Drop File Upload Area -->
+            <div class="form-group">
+              <label class="form-label">Upload File (PDF, JPG, PNG, DOC, DOCX - Max 4MB) *</label>
+              <div class="upload-dropzone" id="uploadDropzone">
+                <input type="file" id="fileUploadInput" class="visually-hidden" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                <div class="dropzone-idle" id="dropzoneIdle">
+                  <div class="upload-icon">📁</div>
+                  <p class="dropzone-text">
+                    <strong>Click to browse</strong> or drag and drop your document here
+                  </p>
+                  <span class="dropzone-hints">PDF, JPG, PNG, DOC, DOCX up to 4MB</span>
+                </div>
+                <div class="dropzone-selected" id="dropzoneSelected" style="display: none;">
+                  <div class="file-icon-badge">📄</div>
+                  <div class="file-meta">
+                    <span class="file-name" id="selectedFileName">filename.pdf</span>
+                    <span class="file-size" id="selectedFileSize">2.4 MB</span>
+                  </div>
+                  <button type="button" class="remove-file-btn" id="removeFileBtn" aria-label="Remove selected file">
+                    &times;
+                  </button>
+                </div>
+              </div>
+              <span class="upload-error-msg" id="fileError" style="display: none;"></span>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" id="submitResourceBtn">
+              Submit Resource &rarr;
+            </button>
+
+            <!-- Contribution Success Banner -->
+            <div class="form-success-banner" id="contribSuccessBanner" style="display: none;">
+              🎉 Thank you for contributing! Your upload has been submitted and sent to the Owner for verification before appearing on the website.
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ========================================================= -->
+    <!-- 8. ABOUT US SECTION                                       -->
+    <!-- ========================================================= -->
+    <section class="section about-section" id="about">
+      <div class="container">
+        <div class="about-card">
+          <div class="badge-pill">
+            <span>ABOUT US</span>
+          </div>
+          <h2 class="section-title">Making college study material easier to find.</h2>
+          <p class="about-lead">
+            <strong>EcaNotes.in</strong> is a student-focused platform where college students can find and share notes, PYQs, assignments and handwritten study material.
+          </p>
+          <p class="about-text">
+            Built by students who understand the rush of exam preparation, EcaNotes brings together verified previous year question papers, high-scoring handwritten notes, and solved assignment sheets all organized systematically by semester, subject, and unit.
+          </p>
+          <div class="about-features-row">
+            <div class="about-pill">✓ 100% Free & Open Access</div>
+            <div class="about-pill">✓ Peer Reviewed Submissions</div>
+            <div class="about-pill">✓ Organized by Syllabus</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+
+  <!-- ========================================================= -->
+  <!-- 9. RESOURCE PREVIEW MODAL                                 -->
+  <!-- ========================================================= -->
+  <div class="modal-overlay" id="resourceModal" aria-hidden="true">
+    <div class="modal-dialog" role="dialog" aria-labelledby="modalResourceTitle">
+      <button type="button" class="modal-close-btn" id="modalCloseBtn" aria-label="Close modal">&times;</button>
+      <div class="modal-header">
+        <span class="modal-type-tag" id="modalResourceType">Notes</span>
+        <h3 class="modal-title" id="modalResourceTitle">Engineering Mathematics Unit 1</h3>
+        <p class="modal-meta" id="modalResourceMeta">1st Year · Engineering Mathematics</p>
+      </div>
+      <div class="modal-body">
+        <div class="modal-preview-placeholder">
+          <div class="preview-doc-icon">📄</div>
+          <h4>Verified Study Document</h4>
+          <p id="modalResourceDesc">Comprehensive unit notes prepared by top college seniors covering all syllabus topics and formulas.</p>
+          <div class="preview-stats">
+            <span>Format: <strong>PDF Document</strong></span>
+            <span>Verified: <strong>Yes (Peer Hub)</strong></span>
+            <span>Access: <strong>Free Download</strong></span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" id="modalDismissBtn">Close</button>
+        <button type="button" class="btn btn-outline" id="modalPreviewBtn" style="border-color: #0F1E36; color: #0F1E36;">
+          👁️ Preview PDF
+        </button>
+        <button type="button" class="btn btn-primary" id="modalDownloadBtn">
+          📥 Download PDF
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ========================================================= -->
+  <!-- 10. FOOTER                                                -->
+  <!-- ========================================================= -->
+  <!-- ========================================================= -->
+  <!-- 10. FOOTER (Matching Reference Image)                     -->
+  <!-- ========================================================= -->
+  <footer class="site-footer">
+    <div class="container footer-container">
+      <!-- Col 1: Brand & Socials -->
+      <div class="footer-col-brand">
+        <a href="#home" class="footer-logo">
+          <span class="logo-main">EcaNotes</span><span class="logo-tld">.in</span>
+        </a>
+        <p class="footer-tagline">
+          Making college study material<br>easier to find.
+        </p>
+        <div class="footer-social-row">
+          <a href="#" class="social-icon-box" aria-label="X (formerly Twitter)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+            </svg>
+          </a>
+          <a href="#" class="social-icon-box" aria-label="Instagram">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+              <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+              <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+            </svg>
+          </a>
+          <a href="#" class="social-icon-box" aria-label="LinkedIn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 8.76c-.95 0-1.72-.77-1.72-1.72s.77-1.72 1.72-1.72 1.72.77 1.72 1.72-.77 1.72-1.72 1.72m1.4 9.74V10.13H5.06v8.37h2.8z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+
+      <!-- Col 2: Platform -->
+      <div class="footer-col">
+        <h4 class="footer-col-title">PLATFORM</h4>
+        <ul class="footer-links">
+          <li><a href="#home">Home</a></li>
+          <li><a href="#resourcesDisplaySection">Find Resources</a></li>
+          <li><a href="#reviews">Reviews</a></li>
+          <li><a href="#contribute">Contribute</a></li>
+        </ul>
+      </div>
+
+      <!-- Col 3: Resources -->
+      <div class="footer-col">
+        <h4 class="footer-col-title">RESOURCES</h4>
+        <ul class="footer-links">
+          <li><a href="#resourcesDisplaySection" data-category="Notes">Notes</a></li>
+          <li><a href="#pyqs" data-category="PYQ">PYQs</a></li>
+          <li><a href="#assignments" data-category="Assignment">Assignments</a></li>
+          <li><a href="#resourcesDisplaySection" data-category="Handwritten Notes">Handwritten Notes</a></li>
+          <li><a href="#resourcesDisplaySection" data-category="Practical Files">Practical Files</a></li>
+        </ul>
+      </div>
+
+      <!-- Col 4: Legal & Contact -->
+      <div class="footer-col">
+        <h4 class="footer-col-title">LEGAL</h4>
+        <ul class="footer-links">
+          <li><a href="#">Privacy Policy</a></li>
+          <li><a href="#">Terms &amp; Conditions</a></li>
+        </ul>
+
+        <h4 class="footer-col-title footer-contact-title">CONTACT</h4>
+        <ul class="footer-links">
+          <li><a href="mailto:hello@ecanotes.in" class="contact-email-link">hello@ecanotes.in</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Bottom Bar (Divider & Credits) -->
+    <div class="footer-bottom-bar">
+      <div class="container footer-bottom-inner">
+        <p class="footer-copyright">&copy; <span id="currentYear">2026</span> EcaNotes.in. All rights reserved.</p>
+        <div class="footer-bottom-right">
+          <span class="footer-mission-text">Built for college students, by college students.</span>
+          <a href="admin.html" target="_blank" rel="noopener noreferrer" class="footer-admin-link" title="Owner Access Portal">🔐 Portal</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer" aria-live="assertive"></div>
+
+  <!-- API Client Layer -->
+  <script src="js/api.js"></script>
+  <!-- Database & Local Fallback Layer -->
+  <script src="js/db.js"></script>
+  <!-- Main JavaScript File -->
+  <script src="js/script.js"></script>
+</body>
+</html>
