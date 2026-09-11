@@ -7,3 +7,5 @@ Thumbs.db
 server_stdout.log
 server_stderr.log
 *.metadata.json
+data/uploads/dir-*
+data/uploads/up-*

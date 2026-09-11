@@ -1,18 +1,29 @@
 """
-EcaNotes.in - Production SQLite Database Engine
-Handles:
-- Persistent relational storage for resources, reviews, admin accounts, and sessions.
+EcaNotes.in - Unified Relational Database Engine
+Supports:
+1. Cloud PostgreSQL (Supabase / Neon / Render Postgres) when DATABASE_URL is set.
+2. Local SQLite (data/ecanotes.db) when DATABASE_URL is absent.
+- Persistent relational storage for resources, reviews, admin accounts, sessions, and subjects.
+- Bytea/BLOB binary storage for uploaded PDF files (up to 4 MB) ensuring 100% persistence on cloud.
 - Secure PBKDF2-HMAC-SHA256 password hashing with random salt.
-- Seed data initialization (including Practical Files and published reviews).
 """
 
 import os
+import sys
+import re
 import sqlite3
 import hashlib
 import secrets
 import time
 from datetime import datetime
 from pathlib import Path
+
+try:
+    import psycopg2
+    import psycopg2.extras
+    HAS_PSYCOPG2 = True
+except ImportError:
+    HAS_PSYCOPG2 = False
 
 # Paths
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,7 +35,107 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def get_database_url() -> str | None:
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        return None
+    url = url.strip()
+    if url.startswith("postgres://"):
+        url = "postgresql://" + url[len("postgres://"):]
+    return url
+
+
+def is_postgres() -> bool:
+    return bool(get_database_url() and HAS_PSYCOPG2)
+
+
+class PostgresCursor:
+    """
+    Transparent cursor wrapper translating SQLite-style '?' placeholders
+    and SQLite dialect idioms (INSERT OR REPLACE, INSERT OR IGNORE) into PostgreSQL.
+    """
+    def __init__(self, raw_cursor):
+        self._cursor = raw_cursor
+
+    def execute(self, query: str, params=None):
+        translated = query.replace("?", "%s")
+
+        # Emulate PRAGMA table_info in PostgreSQL
+        if "PRAGMA table_info" in translated:
+            self._cursor.execute("""
+                SELECT column_name as name FROM information_schema.columns 
+                WHERE table_name = 'resources'
+            """)
+            return self
+
+        # Handle INSERT OR REPLACE INTO -> ON CONFLICT (id) DO UPDATE / DO NOTHING
+        if re.match(r"^\s*INSERT\s+OR\s+REPLACE\s+INTO", translated, re.IGNORECASE):
+            translated = re.sub(r"^\s*INSERT\s+OR\s+REPLACE\s+INTO", "INSERT INTO", translated, flags=re.IGNORECASE)
+            if "ON CONFLICT" not in translated.upper():
+                translated = translated.rstrip().rstrip(";") + " ON CONFLICT (id) DO NOTHING"
+
+        # Handle INSERT OR IGNORE INTO -> ON CONFLICT DO NOTHING
+        if re.match(r"^\s*INSERT\s+OR\s+IGNORE\s+INTO", translated, re.IGNORECASE):
+            translated = re.sub(r"^\s*INSERT\s+OR\s+IGNORE\s+INTO", "INSERT INTO", translated, flags=re.IGNORECASE)
+            if "ON CONFLICT" not in translated.upper():
+                translated = translated.rstrip().rstrip(";") + " ON CONFLICT DO NOTHING"
+
+        if params is not None:
+            adapted = []
+            for p in params:
+                if isinstance(p, (bytes, bytearray)):
+                    adapted.append(psycopg2.Binary(p))
+                else:
+                    adapted.append(p)
+            self._cursor.execute(translated, tuple(adapted))
+        else:
+            self._cursor.execute(translated)
+        return self
+
+    def fetchone(self):
+        row = self._cursor.fetchone()
+        if row is None:
+            return None
+        return dict(row)
+
+    def fetchall(self):
+        rows = self._cursor.fetchall()
+        return [dict(r) for r in rows]
+
+    @property
+    def rowcount(self):
+        return self._cursor.rowcount
+
+    def close(self):
+        self._cursor.close()
+
+
+class PostgresConnection:
+    def __init__(self, raw_conn):
+        self._conn = raw_conn
+
+    def cursor(self):
+        return PostgresCursor(self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor))
+
+    def commit(self):
+        self._conn.commit()
+
+    def rollback(self):
+        self._conn.rollback()
+
+    def close(self):
+        self._conn.close()
+
+
 def get_connection():
+    db_url = get_database_url()
+    if db_url and HAS_PSYCOPG2:
+        try:
+            raw_conn = psycopg2.connect(db_url)
+            return PostgresConnection(raw_conn)
+        except Exception as err:
+            print(f"[DB] PostgreSQL connection error: {err}. Falling back to SQLite.")
+
     conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
@@ -51,7 +162,7 @@ def init_db():
     conn = get_connection()
     cursor = conn.cursor()
 
-    # 1. Resources Table
+    # 1. Resources Table (Includes file_data BYTEA for cloud permanent persistence)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS resources (
         id TEXT PRIMARY KEY,
@@ -66,12 +177,13 @@ def init_db():
         file_name TEXT NOT NULL,
         file_size TEXT NOT NULL,
         file_type TEXT NOT NULL,
+        file_data BYTEA,
         downloads INTEGER DEFAULT 0,
         description TEXT,
         status TEXT DEFAULT 'pending',
         created_at TEXT NOT NULL,
         approved_at TEXT,
-        timestamp INTEGER NOT NULL
+        timestamp BIGINT NOT NULL
     )
     """)
 
@@ -87,7 +199,7 @@ def init_db():
         status TEXT DEFAULT 'pending',
         created_at TEXT NOT NULL,
         published_at TEXT,
-        timestamp INTEGER NOT NULL
+        timestamp BIGINT NOT NULL
     )
     """)
 
@@ -107,9 +219,8 @@ def init_db():
     CREATE TABLE IF NOT EXISTS admin_sessions (
         token TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        expires_at INTEGER NOT NULL,
-        FOREIGN KEY (user_id) REFERENCES admin_users (id)
+        created_at BIGINT NOT NULL,
+        expires_at BIGINT NOT NULL
     )
     """)
 
@@ -123,21 +234,32 @@ def init_db():
         UNIQUE(name, year)
     )
     """)
+    conn.commit()
 
-    # Ensure branch column exists if table was previously created
-    cursor.execute("PRAGMA table_info(resources)")
-    cols = [col["name"] for col in cursor.fetchall()]
-    if "branch" not in cols:
-        cursor.execute("ALTER TABLE resources ADD COLUMN branch TEXT DEFAULT 'All'")
-        conn.commit()
-        print("[DB] Migrated resources table: added branch column")
+    # Ensure branch & file_data columns exist if table was previously created
+    try:
+        cursor.execute("PRAGMA table_info(resources)")
+        cols = [col["name"] for col in cursor.fetchall()]
+        if "branch" not in cols:
+            cursor.execute("ALTER TABLE resources ADD COLUMN branch TEXT DEFAULT 'All'")
+            conn.commit()
+            print("[DB] Migrated resources table: added branch column")
+        if "file_data" not in cols:
+            cursor.execute("ALTER TABLE resources ADD COLUMN file_data BYTEA")
+            conn.commit()
+            print("[DB] Migrated resources table: added file_data column")
+    except Exception as e:
+        print(f"[DB] Column check notice: {e}")
 
     # Update existing seed resources to ensure valid branches if default was 'All'
-    cursor.execute("UPDATE resources SET branch = 'CSE' WHERE id = 'res-2' AND (branch IS NULL OR branch = 'All')")
-    cursor.execute("UPDATE resources SET branch = 'ECE' WHERE id = 'res-4' AND (branch IS NULL OR branch = 'All')")
-    cursor.execute("UPDATE resources SET branch = 'CSE' WHERE id = 'res-6' AND (branch IS NULL OR branch = 'All')")
-    cursor.execute("UPDATE resources SET branch = 'IT' WHERE id = 'res-8' AND (branch IS NULL OR branch = 'All')")
-    conn.commit()
+    try:
+        cursor.execute("UPDATE resources SET branch = 'CSE' WHERE id = 'res-2' AND (branch IS NULL OR branch = 'All')")
+        cursor.execute("UPDATE resources SET branch = 'ECE' WHERE id = 'res-4' AND (branch IS NULL OR branch = 'All')")
+        cursor.execute("UPDATE resources SET branch = 'CSE' WHERE id = 'res-6' AND (branch IS NULL OR branch = 'All')")
+        cursor.execute("UPDATE resources SET branch = 'IT' WHERE id = 'res-8' AND (branch IS NULL OR branch = 'All')")
+        conn.commit()
+    except Exception:
+        pass
 
     # Seed Admin User if none exists
     cursor.execute("SELECT COUNT(*) as cnt FROM admin_users")
@@ -318,14 +440,21 @@ def seed_resources(conn):
     cursor = conn.cursor()
     for s in seeds:
         pdf_path = create_sample_pdf(s["title"], s["subject"], s["year"], s["type"], s["author"], s["description"], s["file_name"])
+        pdf_bytes = None
+        if pdf_path and os.path.exists(pdf_path):
+            try:
+                with open(pdf_path, "rb") as pf:
+                    pdf_bytes = pf.read()
+            except Exception:
+                pass
         cursor.execute("""
             INSERT OR REPLACE INTO resources (
-                id, title, subject, year, branch, type, author, email, file_path, file_name, file_size, file_type, downloads, description, status, created_at, approved_at, timestamp
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?, ?)
+                id, title, subject, year, branch, type, author, email, file_path, file_name, file_size, file_type, file_data, downloads, description, status, created_at, approved_at, timestamp
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?, ?)
         """, (
             s["id"], s["title"], s["subject"], s["year"], s.get("branch", "All"), s["type"], s["author"],
             "contributor@ecanotes.in", str(pdf_path), s["file_name"], s["file_size"],
-            "application/pdf", s["downloads"], s["description"], now_str, now_str, now_ts
+            "application/pdf", pdf_bytes, s["downloads"], s["description"], now_str, now_str, now_ts
         ))
     conn.commit()
     print(f"[DB] Seeded {len(seeds)} verified study resources.")

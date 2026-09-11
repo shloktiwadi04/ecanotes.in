@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, Request, HTTPException, Depends, UploadFile, File, Form, status
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
@@ -164,7 +164,11 @@ def list_resources(
     rows = cursor.fetchall()
     conn.close()
 
-    resources = [dict(r) for r in rows]
+    resources = []
+    for r in rows:
+        d = dict(r)
+        d.pop("file_data", None)
+        resources.append(d)
 
     # Search filter in python for comprehensive multi-field matching
     if q and q.strip():
@@ -227,7 +231,9 @@ def get_resource_detail(resource_id: str):
 
     if not row:
         raise HTTPException(status_code=404, detail="Study resource not found")
-    return dict(row)
+    res_dict = dict(row)
+    res_dict.pop("file_data", None)
+    return res_dict
 
 
 @app.post("/api/resources/upload", status_code=status.HTTP_201_CREATED)
@@ -263,8 +269,11 @@ async def upload_resource(
         raise HTTPException(status_code=400, detail="File size must be 4 MB or less.")
     file_size_str = f"{(file_size_bytes / (1024 * 1024)):.1f} MB" if file_size_bytes >= 1024*1024 else f"{(file_size_bytes / 1024):.0f} KB"
 
-    with open(dest_path, "wb") as f:
-        f.write(file_bytes)
+    try:
+        with open(dest_path, "wb") as f:
+            f.write(file_bytes)
+    except Exception as e:
+        print(f"[Storage] Disk write notice: {e}")
 
     now_str = datetime.now().strftime("%d/%m/%Y, %I:%M:%S %p")
     now_ts = int(time.time() * 1000)
@@ -273,12 +282,12 @@ async def upload_resource(
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO resources (
-            id, title, subject, year, branch, type, author, email, file_path, file_name, file_size, file_type, downloads, description, status, created_at, approved_at, timestamp
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'pending', ?, NULL, ?)
+            id, title, subject, year, branch, type, author, email, file_path, file_name, file_size, file_type, file_data, downloads, description, status, created_at, approved_at, timestamp
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'pending', ?, NULL, ?)
     """, (
         res_id, title.strip(), subject.strip(), year.strip(), (branch or "All").strip(), type.strip(),
         name.strip(), email.strip(), str(dest_path), original_filename,
-        file_size_str, file.content_type or "application/pdf",
+        file_size_str, file.content_type or "application/pdf", file_bytes,
         f"Contributed by {name.strip()} ({email.strip()}) for {year.strip()} {subject.strip()}.",
         now_str, now_ts
     ))
@@ -301,6 +310,7 @@ def preview_resource(resource_id: str):
     """
     Streams the genuine binary file with Content-Disposition: inline so the browser
     renders the PDF directly in a viewer tab without auto-downloading.
+    Prioritizes permanent binary file_data from DB, falling back to disk or generator.
     """
     conn = get_connection()
     cursor = conn.cursor()
@@ -311,24 +321,38 @@ def preview_resource(resource_id: str):
         conn.close()
         raise HTTPException(status_code=404, detail="Resource file not found")
 
-    file_path = row["file_path"]
+    row = dict(row)
+    file_path = row.get("file_path")
     download_filename = row["file_name"]
-
-    # If physical file is missing, generate authentic compliant PDF
-    if not file_path or not os.path.exists(file_path):
-        gen_path = create_sample_pdf(
-            row["title"], row["subject"], row["year"], row["type"],
-            row["author"], row["description"] or "", download_filename
-        )
-        file_path = str(gen_path)
-        cursor.execute("UPDATE resources SET file_path = ? WHERE id = ?", (file_path, resource_id))
-        conn.commit()
+    file_data = row.get("file_data")
+    media_type = row.get("file_type") or "application/pdf"
 
     conn.close()
 
+    # Priority 1: Cloud/Database permanent binary
+    if file_data:
+        return Response(
+            content=bytes(file_data),
+            media_type=media_type,
+            headers={"Content-Disposition": "inline"}
+        )
+
+    # Priority 2: Physical file on disk
+    if file_path and os.path.exists(file_path):
+        return FileResponse(
+            path=file_path,
+            media_type=media_type,
+            headers={"Content-Disposition": "inline"}
+        )
+
+    # Priority 3: Synthesize compliant sample PDF
+    gen_path = create_sample_pdf(
+        row["title"], row["subject"], row["year"], row["type"],
+        row["author"], row["description"] or "", download_filename
+    )
     return FileResponse(
-        path=file_path,
-        media_type=row["file_type"] or "application/pdf",
+        path=str(gen_path),
+        media_type=media_type,
         headers={"Content-Disposition": "inline"}
     )
 
@@ -336,8 +360,9 @@ def preview_resource(resource_id: str):
 @app.get("/api/download/{resource_id}")
 def download_resource(resource_id: str):
     """
-    Downloads the genuine binary file and increments download counter in SQLite.
+    Downloads the genuine binary file and increments download counter in SQLite/PostgreSQL.
     Returns Content-Disposition: attachment with the original filename.
+    Prioritizes permanent binary file_data from DB, falling back to disk or generator.
     """
     conn = get_connection()
     cursor = conn.cursor()
@@ -348,28 +373,43 @@ def download_resource(resource_id: str):
         conn.close()
         raise HTTPException(status_code=404, detail="Resource file not found")
 
-    file_path = row["file_path"]
+    row = dict(row)
+    file_path = row.get("file_path")
     download_filename = row["file_name"]
-
-    # If physical file is missing, generate authentic compliant PDF
-    if not file_path or not os.path.exists(file_path):
-        gen_path = create_sample_pdf(
-            row["title"], row["subject"], row["year"], row["type"],
-            row["author"], row["description"] or "", download_filename
-        )
-        file_path = str(gen_path)
-        cursor.execute("UPDATE resources SET file_path = ? WHERE id = ?", (file_path, resource_id))
+    file_data = row.get("file_data")
+    media_type = row.get("file_type") or "application/pdf"
 
     # Increment downloads
-    new_downloads = (row["downloads"] or 0) + 1
+    new_downloads = (row.get("downloads") or 0) + 1
     cursor.execute("UPDATE resources SET downloads = ? WHERE id = ?", (new_downloads, resource_id))
     conn.commit()
     conn.close()
 
+    # Priority 1: Cloud/Database permanent binary
+    if file_data:
+        return Response(
+            content=bytes(file_data),
+            media_type=media_type,
+            headers={"Content-Disposition": f'attachment; filename="{download_filename}"'}
+        )
+
+    # Priority 2: Physical file on disk
+    if file_path and os.path.exists(file_path):
+        return FileResponse(
+            path=file_path,
+            filename=download_filename,
+            media_type=media_type
+        )
+
+    # Priority 3: Synthesize compliant sample PDF
+    gen_path = create_sample_pdf(
+        row["title"], row["subject"], row["year"], row["type"],
+        row["author"], row["description"] or "", download_filename
+    )
     return FileResponse(
-        path=file_path,
+        path=str(gen_path),
         filename=download_filename,
-        media_type=row["file_type"] or "application/pdf"
+        media_type=media_type
     )
 
 
@@ -648,7 +688,12 @@ def list_pending_uploads(admin=Depends(get_current_admin)):
     cursor.execute("SELECT * FROM resources WHERE status = 'pending' ORDER BY timestamp DESC")
     rows = cursor.fetchall()
     conn.close()
-    return [dict(r) for r in rows]
+    pending = []
+    for r in rows:
+        d = dict(r)
+        d.pop("file_data", None)
+        pending.append(d)
+    return pending
 
 
 @app.post("/api/admin/verify/{resource_id}")
@@ -686,33 +731,51 @@ async def verify_and_publish_resource(
     file_name = row["file_name"]
     file_size = row["file_size"]
     file_type = row["file_type"]
+    rep_file_bytes = None
 
     if replacement_file and replacement_file.filename:
         file_bytes = await replacement_file.read()
         if len(file_bytes) > MAX_FILE_SIZE_BYTES:
             raise HTTPException(status_code=400, detail="File size must be 4 MB or less.")
+        rep_file_bytes = file_bytes
         safe_name = f"{resource_id}_rep_{secrets.token_hex(4)}{Path(replacement_file.filename).suffix}"
         rep_path = UPLOADS_DIR / safe_name
-        with open(rep_path, "wb") as f:
-            f.write(file_bytes)
-        file_path = str(rep_path)
+        try:
+            with open(rep_path, "wb") as f:
+                f.write(file_bytes)
+            file_path = str(rep_path)
+        except Exception:
+            file_path = f"uploads/{safe_name}"
         file_name = replacement_file.filename
         file_size = f"{(len(file_bytes) / (1024 * 1024)):.1f} MB"
         file_type = replacement_file.content_type or "application/pdf"
 
     now_str = datetime.now().strftime("%d/%m/%Y, %I:%M:%S %p")
 
-    cursor.execute("""
-        UPDATE resources SET
-            title = ?, subject = ?, year = ?, branch = ?, type = ?, author = ?,
-            file_path = ?, file_name = ?, file_size = ?, file_type = ?,
-            status = 'approved', approved_at = ?
-        WHERE id = ?
-    """, (
-        new_title, new_subject, new_year, new_branch, new_type, new_author,
-        file_path, file_name, file_size, file_type,
-        now_str, resource_id
-    ))
+    if rep_file_bytes is not None:
+        cursor.execute("""
+            UPDATE resources SET
+                title = ?, subject = ?, year = ?, branch = ?, type = ?, author = ?,
+                file_path = ?, file_name = ?, file_size = ?, file_type = ?, file_data = ?,
+                status = 'approved', approved_at = ?
+            WHERE id = ?
+        """, (
+            new_title, new_subject, new_year, new_branch, new_type, new_author,
+            file_path, file_name, file_size, file_type, rep_file_bytes,
+            now_str, resource_id
+        ))
+    else:
+        cursor.execute("""
+            UPDATE resources SET
+                title = ?, subject = ?, year = ?, branch = ?, type = ?, author = ?,
+                file_path = ?, file_name = ?, file_size = ?, file_type = ?,
+                status = 'approved', approved_at = ?
+            WHERE id = ?
+        """, (
+            new_title, new_subject, new_year, new_branch, new_type, new_author,
+            file_path, file_name, file_size, file_type,
+            now_str, resource_id
+        ))
     conn.commit()
     ensure_subject(new_subject, new_year, conn)
     conn.close()
@@ -769,6 +832,7 @@ async def admin_publish_direct(
     original_filename = f"{title.strip().replace(' ', '_')}.pdf"
     file_size_str = "3.5 MB"
     file_type = "application/pdf"
+    file_bytes_data = None
 
     if file and file.filename:
         original_filename = file.filename
@@ -780,10 +844,14 @@ async def admin_publish_direct(
         if file_size_bytes > MAX_FILE_SIZE_BYTES:
             raise HTTPException(status_code=400, detail="File size must be 4 MB or less.")
         file_size_str = f"{(file_size_bytes / (1024 * 1024)):.1f} MB" if file_size_bytes >= 1024*1024 else f"{(file_size_bytes / 1024):.0f} KB"
-        with open(dest_path, "wb") as f:
-            f.write(file_bytes)
-        file_path = str(dest_path)
+        try:
+            with open(dest_path, "wb") as f:
+                f.write(file_bytes)
+            file_path = str(dest_path)
+        except Exception:
+            file_path = f"uploads/{safe_name}"
         file_type = file.content_type or "application/pdf"
+        file_bytes_data = file_bytes
     else:
         from backend.storage import create_sample_pdf
         pdf_path = create_sample_pdf(
@@ -796,6 +864,11 @@ async def admin_publish_direct(
             filename=f"{res_id}.pdf"
         )
         file_path = str(pdf_path)
+        try:
+            with open(pdf_path, "rb") as pf:
+                file_bytes_data = pf.read()
+        except Exception:
+            file_bytes_data = None
 
     now_str = datetime.now().strftime("%d/%m/%Y, %I:%M:%S %p")
     now_ts = int(time.time() * 1000)
@@ -804,12 +877,12 @@ async def admin_publish_direct(
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO resources (
-            id, title, subject, year, branch, type, author, email, file_path, file_name, file_size, file_type, downloads, description, status, created_at, approved_at, timestamp
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'owner@ecanotes.in', ?, ?, ?, ?, 0, ?, 'approved', ?, ?, ?)
+            id, title, subject, year, branch, type, author, email, file_path, file_name, file_size, file_type, file_data, downloads, description, status, created_at, approved_at, timestamp
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'owner@ecanotes.in', ?, ?, ?, ?, ?, 0, ?, 'approved', ?, ?, ?)
     """, (
         res_id, title.strip(), subject.strip(), year.strip(), (branch or "All").strip(), type.strip(),
         author.strip() if author else "EcaNotes Faculty",
-        file_path, original_filename, file_size_str, file_type,
+        file_path, original_filename, file_size_str, file_type, file_bytes_data,
         description.strip() if description else f"Official study material for {subject.strip()} ({year.strip()}).",
         now_str, now_str, now_ts
     ))
@@ -882,24 +955,28 @@ def get_admin_stats(admin=Depends(get_current_admin)):
     published_reviews = cursor.fetchone()["cnt"]
 
     # Calculate total published data size dynamically from actual approved files
-    cursor.execute("SELECT file_path, file_size FROM resources WHERE status = 'approved'")
+    cursor.execute("SELECT file_path, file_size, file_data FROM resources WHERE status = 'approved'")
     approved_files = cursor.fetchall()
     total_published_bytes = 0
-    for af in approved_files:
-        fp = af["file_path"]
-        if fp and os.path.exists(fp):
-            total_published_bytes += os.path.getsize(fp)
-        elif af["file_size"]:
-            s = str(af["file_size"]).strip()
-            try:
-                if "MB" in s:
-                    val = float(s.replace("MB", "").strip())
-                    total_published_bytes += int(val * 1024 * 1024)
-                elif "KB" in s:
-                    val = float(s.replace("KB", "").strip())
-                    total_published_bytes += int(val * 1024)
-            except Exception:
-                pass
+    for raw_af in approved_files:
+        af = dict(raw_af)
+        if af.get("file_data"):
+            total_published_bytes += len(af["file_data"])
+        else:
+            fp = af.get("file_path")
+            if fp and os.path.exists(fp):
+                total_published_bytes += os.path.getsize(fp)
+            elif af.get("file_size"):
+                s = str(af["file_size"]).strip()
+                try:
+                    if "MB" in s:
+                        val = float(s.replace("MB", "").strip())
+                        total_published_bytes += int(val * 1024 * 1024)
+                    elif "KB" in s:
+                        val = float(s.replace("KB", "").strip())
+                        total_published_bytes += int(val * 1024)
+                except Exception:
+                    pass
 
     if total_published_bytes >= 1024 * 1024 * 1024:
         pub_str = f"{(total_published_bytes / (1024 * 1024 * 1024)):.2f} GB"
@@ -929,10 +1006,18 @@ def inspect_sql_data(admin=Depends(get_current_admin)):
     cursor = conn.cursor()
 
     cursor.execute("SELECT * FROM resources WHERE status = 'pending' LIMIT 10")
-    pending_uploads = [dict(r) for r in cursor.fetchall()]
+    pending_uploads = []
+    for r in cursor.fetchall():
+        d = dict(r)
+        d.pop("file_data", None)
+        pending_uploads.append(d)
 
     cursor.execute("SELECT * FROM resources WHERE status = 'approved' LIMIT 10")
-    verified_resources = [dict(r) for r in cursor.fetchall()]
+    verified_resources = []
+    for r in cursor.fetchall():
+        d = dict(r)
+        d.pop("file_data", None)
+        verified_resources.append(d)
 
     cursor.execute("SELECT * FROM reviews WHERE status = 'pending' LIMIT 10")
     pending_reviews = [dict(r) for r in cursor.fetchall()]
