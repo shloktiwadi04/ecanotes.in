@@ -63,9 +63,18 @@ const EcaAPI = (() => {
     },
 
     // ================= PUBLIC ENDPOINTS =================
+    getPreviewUrl(id) {
+      return `${API_BASE}/api/preview/${id}`;
+    },
+
+    getDownloadUrl(id) {
+      return `${API_BASE}/api/download/${id}`;
+    },
+
     async getResources(filters = {}) {
       const params = new URLSearchParams();
       if (filters.year) params.append('year', filters.year);
+      if (filters.branch) params.append('branch', filters.branch);
       if (filters.type) params.append('type', filters.type);
       if (filters.subject) params.append('subject', filters.subject);
       if (filters.q) params.append('q', filters.q);

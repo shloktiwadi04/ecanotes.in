@@ -544,6 +544,88 @@ svg {
   transform: translateY(-3px);
 }
 
+/* --------------------------------------------------------------------------
+   6B. Clean Minimal Hero Section
+   -------------------------------------------------------------------------- */
+.hero-clean {
+  padding: 80px 0 70px;
+  background-color: var(--color-bg-page);
+  text-align: center;
+}
+
+.hero-container-clean {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 820px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.hero-title-clean {
+  font-size: 3.25rem;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  color: var(--color-primary);
+  margin-bottom: 18px;
+  text-align: center;
+}
+
+.hero-subtitle-clean {
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+  max-width: 620px;
+  margin: 0 auto 36px auto;
+  text-align: center;
+}
+
+.hero-actions-clean {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 48px;
+}
+
+.hero-stats-clean {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 56px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+  width: 100%;
+  max-width: 580px;
+}
+
+/* More Resources Wrap & Button */
+.more-resources-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 36px;
+}
+
+.btn-load-more {
+  padding: 12px 28px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background-color: #FFFFFF;
+  color: var(--color-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all var(--transition-fast);
+}
+
+.btn-load-more:hover {
+  background-color: var(--color-bg-subtle);
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+}
+
 /* Peer Hub Header */
 .peer-hub-header {
   display: flex;
@@ -2080,6 +2162,26 @@ svg {
 
 .footer-admin-link:hover {
   color: #94A3B8;
+}
+
+.footer-bottom-centered {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 24px 0;
+  text-align: center;
+}
+
+.footer-centered-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.footer-creator-text {
+  font-size: 0.9375rem;
+  color: #94A3B8;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  margin: 0;
 }
 
 /* --------------------------------------------------------------------------

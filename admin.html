@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EcaNotes.in | Owner Moderation Console</title>
-  <meta name="description" content="EcaNotes.in Owner Moderation Console - Review, edit, and verify student-contributed college study material.">
+  <title>EcaNotes.in | ECANotes Admin Portal</title>
+  <meta name="description" content="ECANotes Admin Portal - Review, edit, and verify student-contributed college study material.">
   
   <!-- Google Fonts: Plus Jakarta Sans & Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,15 +23,10 @@
         <a href="index.html" class="brand-logo" aria-label="EcaNotes.in Home">
           <span class="logo-main">EcaNotes</span><span class="logo-tld">.in</span>
         </a>
-        <span class="admin-badge">Owner Moderation Console</span>
+        <span class="admin-badge">ECANotes Admin Portal</span>
       </div>
 
       <div class="admin-header-actions">
-        <div class="admin-sys-status">
-          <span class="sys-dot online"></span>
-          <span class="sys-text">Storage &amp; SQL Online</span>
-        </div>
-
         <a href="index.html" class="btn-admin-nav-link" target="_blank" rel="noopener noreferrer">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"></circle>
@@ -119,9 +114,9 @@
       <!-- Header Overview Banner -->
       <div class="admin-overview-banner">
         <div class="overview-text">
-          <h1 class="overview-title">Owner Moderation &amp; Publishing Portal</h1>
+          <h1 class="overview-title">ECANotes Admin Portal</h1>
           <p class="overview-desc">
-            Review submissions from students. You can change their <strong>Year, Subject, Resource/File, Type, Title, and Contributor Name</strong> before publishing them live to the website.
+            Review submissions from students. You can change their <strong>Year, Branch, Subject, Resource/File, Type, Title, and Contributor Name</strong> before publishing them live to the website.
           </p>
         </div>
 
@@ -140,6 +135,14 @@
             <div class="stat-content">
               <div class="stat-number" id="adminStatPendingReviews">0</div>
               <div class="stat-label">Pending Reviews</div>
+            </div>
+          </div>
+
+          <div class="admin-stat-card highlight">
+            <div class="stat-icon">💾</div>
+            <div class="stat-content">
+              <div class="stat-number" id="adminStatPublishedData">0 MB</div>
+              <div class="stat-label">Published Data</div>
             </div>
           </div>
 
@@ -187,9 +190,6 @@
         </button>
         <button type="button" class="admin-nav-tab" data-target="pane-direct">
           ➕ Direct Resource Publisher
-        </button>
-        <button type="button" class="admin-nav-tab" data-target="pane-sql">
-          🗄️ SQL Database Inspector
         </button>
       </nav>
 
@@ -435,6 +435,21 @@
               </div>
 
               <div class="form-group">
+                <label for="directBranch">Branch</label>
+                <select id="directBranch" class="mod-select">
+                  <option value="All" selected>All Branches / Common</option>
+                  <option value="CSE">CSE</option>
+                  <option value="IT">IT</option>
+                  <option value="CYB">CYB</option>
+                  <option value="ECE">ECE</option>
+                  <option value="EIC">EIC</option>
+                  <option value="MECHANICAL">MECHANICAL</option>
+                  <option value="CIVIL">CIVIL</option>
+                  <option value="ELECTRICAL">ELECTRICAL</option>
+                </select>
+              </div>
+
+              <div class="form-group">
                 <label for="directSubject">Subject *</label>
                 <select id="directSubject" class="mod-select">
                   <!-- Dynamically populated based on directYear -->
@@ -490,36 +505,6 @@
               </button>
             </div>
           </form>
-        </div>
-      </section>
-
-      <!-- TAB 4: SQL DATABASE INSPECTOR -->
-      <section class="admin-tab-pane" id="pane-sql">
-        <div class="pane-header">
-          <div>
-            <h2 class="pane-title">SQL Database &amp; Storage Inspector</h2>
-            <p class="pane-subtitle" id="sqlStatusText">
-              Database Status: Active
-            </p>
-          </div>
-        </div>
-
-        <div class="sql-inspector-grid">
-          <div class="sql-box">
-            <div class="sql-box-header">
-              <span class="sql-tag">TABLE</span>
-              <h3>pending_uploads (Queue)</h3>
-            </div>
-            <pre class="sql-code-view" id="sqlPendingTableData">Loading...</pre>
-          </div>
-
-          <div class="sql-box">
-            <div class="sql-box-header">
-              <span class="sql-tag">TABLE</span>
-              <h3>verified_resources (Public)</h3>
-            </div>
-            <pre class="sql-code-view" id="sqlVerifiedTableData">Loading...</pre>
-          </div>
         </div>
       </section>
 

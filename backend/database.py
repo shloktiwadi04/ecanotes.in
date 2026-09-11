@@ -58,6 +58,7 @@ def init_db():
         title TEXT NOT NULL,
         subject TEXT NOT NULL,
         year TEXT NOT NULL,
+        branch TEXT DEFAULT 'All',
         type TEXT NOT NULL,
         author TEXT NOT NULL,
         email TEXT,
@@ -123,6 +124,19 @@ def init_db():
     )
     """)
 
+    # Ensure branch column exists if table was previously created
+    cursor.execute("PRAGMA table_info(resources)")
+    cols = [col["name"] for col in cursor.fetchall()]
+    if "branch" not in cols:
+        cursor.execute("ALTER TABLE resources ADD COLUMN branch TEXT DEFAULT 'All'")
+        conn.commit()
+        print("[DB] Migrated resources table: added branch column")
+
+    # Update existing seed resources to ensure valid branches if default was 'All'
+    cursor.execute("UPDATE resources SET branch = 'CSE' WHERE id = 'res-2' AND (branch IS NULL OR branch = 'All')")
+    cursor.execute("UPDATE resources SET branch = 'ECE' WHERE id = 'res-4' AND (branch IS NULL OR branch = 'All')")
+    cursor.execute("UPDATE resources SET branch = 'CSE' WHERE id = 'res-6' AND (branch IS NULL OR branch = 'All')")
+    cursor.execute("UPDATE resources SET branch = 'IT' WHERE id = 'res-8' AND (branch IS NULL OR branch = 'All')")
     conn.commit()
 
     # Seed Admin User if none exists
@@ -174,6 +188,7 @@ def seed_resources(conn):
             "title": "Engineering Mathematics - I (Calculus & Linear Algebra)",
             "subject": "Engineering Mathematics",
             "year": "1st Year",
+            "branch": "All",
             "type": "Handwritten Notes",
             "author": "Aarav Sharma",
             "downloads": 4820,
@@ -186,6 +201,7 @@ def seed_resources(conn):
             "title": "Data Structures & Algorithms Laboratory - Complete Practical File",
             "subject": "Data Structures & Algorithms",
             "year": "2nd Year",
+            "branch": "CSE",
             "type": "Practical Files",
             "author": "Vikram Malhotra",
             "downloads": 3950,
@@ -198,6 +214,7 @@ def seed_resources(conn):
             "title": "Engineering Physics 2024-25 End Semester Solved PYQs",
             "subject": "Engineering Physics",
             "year": "1st Year",
+            "branch": "All",
             "type": "PYQ",
             "author": "Dr. S. K. Gupta",
             "downloads": 3120,
@@ -210,6 +227,7 @@ def seed_resources(conn):
             "title": "Digital Electronics & Logic Design Lab Practical File",
             "subject": "Digital Electronics",
             "year": "2nd Year",
+            "branch": "ECE",
             "type": "Practical Files",
             "author": "Neha Singhania",
             "downloads": 2840,
@@ -222,6 +240,7 @@ def seed_resources(conn):
             "title": "Programming in C - Solved Assignment Sheets & Programs",
             "subject": "Programming in C",
             "year": "1st Year",
+            "branch": "All",
             "type": "Assignment",
             "author": "Rohan Patel",
             "downloads": 2480,
@@ -234,6 +253,7 @@ def seed_resources(conn):
             "title": "Operating Systems Practical Lab Manual & Shell Scripts",
             "subject": "Operating Systems",
             "year": "3rd Year",
+            "branch": "CSE",
             "type": "Practical Files",
             "author": "Aditya Verma",
             "downloads": 2190,
@@ -246,6 +266,7 @@ def seed_resources(conn):
             "title": "Basic Electrical Engineering - Core Theory Notes",
             "subject": "Basic Electrical Engineering",
             "year": "1st Year",
+            "branch": "All",
             "type": "Notes",
             "author": "Prof. R. C. Rao",
             "downloads": 1940,
@@ -258,12 +279,39 @@ def seed_resources(conn):
             "title": "Computer Networks Lab Record & Cisco Packet Tracer Files",
             "subject": "Computer Networks",
             "year": "3rd Year",
+            "branch": "IT",
             "type": "Practical Files",
             "author": "Pooja Hegde",
             "downloads": 1820,
             "description": "Comprehensive practical file with IP subnetting, socket programming in Python/C, and Packet Tracer network topologies.",
             "file_name": "CN_Practical_Lab_Record.pdf",
             "file_size": "6.1 MB"
+        },
+        {
+            "id": "res-9",
+            "title": "Artificial Intelligence & Expert Systems Complete Notes",
+            "subject": "Artificial Intelligence",
+            "year": "4th Year",
+            "branch": "CSE",
+            "type": "Notes",
+            "author": "Prof. V. Raman",
+            "downloads": 1640,
+            "description": "Search algorithms, heuristic state spaces, knowledge representation, propositional logic, and inference engines.",
+            "file_name": "AI_Core_Theory_Notes.pdf",
+            "file_size": "3.4 MB"
+        },
+        {
+            "id": "res-10",
+            "title": "Microprocessor & Interfacing 8086 Practical Record",
+            "subject": "Digital Electronics",
+            "year": "2nd Year",
+            "branch": "EIC",
+            "type": "Practical Files",
+            "author": "Karan Dave",
+            "downloads": 1430,
+            "description": "8086 microprocessor assembly language programs, pin configurations, memory interfacing, and peripheral IC 8255/8259 lab records.",
+            "file_name": "Microprocessor_8086_Lab_Record.pdf",
+            "file_size": "4.1 MB"
         }
     ]
 
@@ -272,10 +320,10 @@ def seed_resources(conn):
         pdf_path = create_sample_pdf(s["title"], s["subject"], s["year"], s["type"], s["author"], s["description"], s["file_name"])
         cursor.execute("""
             INSERT OR REPLACE INTO resources (
-                id, title, subject, year, type, author, email, file_path, file_name, file_size, file_type, downloads, description, status, created_at, approved_at, timestamp
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?, ?)
+                id, title, subject, year, branch, type, author, email, file_path, file_name, file_size, file_type, downloads, description, status, created_at, approved_at, timestamp
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?, ?)
         """, (
-            s["id"], s["title"], s["subject"], s["year"], s["type"], s["author"],
+            s["id"], s["title"], s["subject"], s["year"], s.get("branch", "All"), s["type"], s["author"],
             "contributor@ecanotes.in", str(pdf_path), s["file_name"], s["file_size"],
             "application/pdf", s["downloads"], s["description"], now_str, now_str, now_ts
         ))

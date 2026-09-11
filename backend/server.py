@@ -124,6 +124,7 @@ class SubjectUpdateRequest(BaseModel):
 @app.get("/api/resources")
 def list_resources(
     year: Optional[str] = "All",
+    branch: Optional[str] = "All",
     type: Optional[str] = "All",
     subject: Optional[str] = "All",
     q: Optional[str] = None
@@ -140,6 +141,10 @@ def list_resources(
     if year and year != "All":
         query += " AND year = ?"
         params.append(year)
+
+    if branch and branch != "All":
+        query += " AND (branch = ? OR branch = 'All' OR branch IS NULL)"
+        params.append(branch)
 
     if type and type != "All":
         if type == "Practical Files":
@@ -170,6 +175,7 @@ def list_resources(
             or search_term in r["subject"].lower()
             or search_term in r["author"].lower()
             or search_term in r["type"].lower()
+            or (r.get("branch") and search_term in r["branch"].lower())
             or (r["description"] and search_term in r["description"].lower())
         ]
 
@@ -229,6 +235,7 @@ async def upload_resource(
     name: str = Form(...),
     email: str = Form(...),
     year: str = Form(...),
+    branch: Optional[str] = Form("All"),
     subject: str = Form(...),
     type: str = Form(...),
     title: str = Form(...),
@@ -266,10 +273,10 @@ async def upload_resource(
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO resources (
-            id, title, subject, year, type, author, email, file_path, file_name, file_size, file_type, downloads, description, status, created_at, approved_at, timestamp
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'pending', ?, NULL, ?)
+            id, title, subject, year, branch, type, author, email, file_path, file_name, file_size, file_type, downloads, description, status, created_at, approved_at, timestamp
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'pending', ?, NULL, ?)
     """, (
-        res_id, title.strip(), subject.strip(), year.strip(), type.strip(),
+        res_id, title.strip(), subject.strip(), year.strip(), (branch or "All").strip(), type.strip(),
         name.strip(), email.strip(), str(dest_path), original_filename,
         file_size_str, file.content_type or "application/pdf",
         f"Contributed by {name.strip()} ({email.strip()}) for {year.strip()} {subject.strip()}.",
@@ -289,10 +296,48 @@ async def upload_resource(
     }
 
 
+@app.get("/api/preview/{resource_id}")
+def preview_resource(resource_id: str):
+    """
+    Streams the genuine binary file with Content-Disposition: inline so the browser
+    renders the PDF directly in a viewer tab without auto-downloading.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM resources WHERE id = ?", (resource_id,))
+    row = cursor.fetchone()
+
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Resource file not found")
+
+    file_path = row["file_path"]
+    download_filename = row["file_name"]
+
+    # If physical file is missing, generate authentic compliant PDF
+    if not file_path or not os.path.exists(file_path):
+        gen_path = create_sample_pdf(
+            row["title"], row["subject"], row["year"], row["type"],
+            row["author"], row["description"] or "", download_filename
+        )
+        file_path = str(gen_path)
+        cursor.execute("UPDATE resources SET file_path = ? WHERE id = ?", (file_path, resource_id))
+        conn.commit()
+
+    conn.close()
+
+    return FileResponse(
+        path=file_path,
+        media_type=row["file_type"] or "application/pdf",
+        headers={"Content-Disposition": "inline"}
+    )
+
+
 @app.get("/api/download/{resource_id}")
 def download_resource(resource_id: str):
     """
     Downloads the genuine binary file and increments download counter in SQLite.
+    Returns Content-Disposition: attachment with the original filename.
     """
     conn = get_connection()
     cursor = conn.cursor()
@@ -612,6 +657,7 @@ async def verify_and_publish_resource(
     title: Optional[str] = Form(None),
     subject: Optional[str] = Form(None),
     year: Optional[str] = Form(None),
+    branch: Optional[str] = Form(None),
     type: Optional[str] = Form(None),
     author: Optional[str] = Form(None),
     replacement_file: Optional[UploadFile] = File(None),
@@ -619,7 +665,7 @@ async def verify_and_publish_resource(
 ):
     """
     Owner verifies and publishes a pending resource.
-    Supports editing title, subject, year, type, and author, or replacing file.
+    Supports editing title, subject, year, branch, type, and author, or replacing file.
     """
     conn = get_connection()
     cursor = conn.cursor()
@@ -633,6 +679,7 @@ async def verify_and_publish_resource(
     new_title = title.strip() if title else row["title"]
     new_subject = subject.strip() if subject else row["subject"]
     new_year = year.strip() if year else row["year"]
+    new_branch = branch.strip() if branch else (row["branch"] if "branch" in row.keys() and row["branch"] else "All")
     new_type = type.strip() if type else row["type"]
     new_author = author.strip() if author else row["author"]
     file_path = row["file_path"]
@@ -657,12 +704,12 @@ async def verify_and_publish_resource(
 
     cursor.execute("""
         UPDATE resources SET
-            title = ?, subject = ?, year = ?, type = ?, author = ?,
+            title = ?, subject = ?, year = ?, branch = ?, type = ?, author = ?,
             file_path = ?, file_name = ?, file_size = ?, file_type = ?,
             status = 'approved', approved_at = ?
         WHERE id = ?
     """, (
-        new_title, new_subject, new_year, new_type, new_author,
+        new_title, new_subject, new_year, new_branch, new_type, new_author,
         file_path, file_name, file_size, file_type,
         now_str, resource_id
     ))
@@ -707,6 +754,7 @@ async def admin_publish_direct(
     title: str = Form(...),
     author: Optional[str] = Form("EcaNotes Faculty"),
     year: str = Form(...),
+    branch: Optional[str] = Form("All"),
     subject: str = Form(...),
     type: str = Form(...),
     description: Optional[str] = Form(""),
@@ -756,11 +804,12 @@ async def admin_publish_direct(
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO resources (
-            id, title, subject, year, type, author, email, file_path, file_name, file_size, file_type, downloads, description, status, created_at, approved_at, timestamp
-        ) VALUES (?, ?, ?, ?, ?, ?, 'owner@ecanotes.in', ?, ?, ?, ?, 0, ?, 'approved', ?, ?, ?)
+            id, title, subject, year, branch, type, author, email, file_path, file_name, file_size, file_type, downloads, description, status, created_at, approved_at, timestamp
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'owner@ecanotes.in', ?, ?, ?, ?, 0, ?, 'approved', ?, ?, ?)
     """, (
-        res_id, title.strip(), subject.strip(), year.strip(), type.strip(),
-        author.strip(), file_path, original_filename, file_size_str, file_type,
+        res_id, title.strip(), subject.strip(), year.strip(), (branch or "All").strip(), type.strip(),
+        author.strip() if author else "EcaNotes Faculty",
+        file_path, original_filename, file_size_str, file_type,
         description.strip() if description else f"Official study material for {subject.strip()} ({year.strip()}).",
         now_str, now_str, now_ts
     ))
@@ -832,6 +881,35 @@ def get_admin_stats(admin=Depends(get_current_admin)):
     cursor.execute("SELECT COUNT(*) as cnt FROM reviews WHERE status = 'published'")
     published_reviews = cursor.fetchone()["cnt"]
 
+    # Calculate total published data size dynamically from actual approved files
+    cursor.execute("SELECT file_path, file_size FROM resources WHERE status = 'approved'")
+    approved_files = cursor.fetchall()
+    total_published_bytes = 0
+    for af in approved_files:
+        fp = af["file_path"]
+        if fp and os.path.exists(fp):
+            total_published_bytes += os.path.getsize(fp)
+        elif af["file_size"]:
+            s = str(af["file_size"]).strip()
+            try:
+                if "MB" in s:
+                    val = float(s.replace("MB", "").strip())
+                    total_published_bytes += int(val * 1024 * 1024)
+                elif "KB" in s:
+                    val = float(s.replace("KB", "").strip())
+                    total_published_bytes += int(val * 1024)
+            except Exception:
+                pass
+
+    if total_published_bytes >= 1024 * 1024 * 1024:
+        pub_str = f"{(total_published_bytes / (1024 * 1024 * 1024)):.2f} GB"
+    elif total_published_bytes >= 1024 * 1024:
+        pub_str = f"{(total_published_bytes / (1024 * 1024)):.1f} MB"
+    elif total_published_bytes >= 1024:
+        pub_str = f"{(total_published_bytes / 1024):.0f} KB"
+    else:
+        pub_str = f"{total_published_bytes} B"
+
     conn.close()
 
     return {
@@ -839,7 +917,9 @@ def get_admin_stats(admin=Depends(get_current_admin)):
         "verified": verified,
         "totalDownloads": total_dl,
         "pendingReviews": pending_reviews,
-        "publishedReviews": published_reviews
+        "publishedReviews": published_reviews,
+        "publishedData": pub_str,
+        "publishedDataBytes": total_published_bytes
     }
 
 

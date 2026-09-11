@@ -7,10 +7,24 @@ import json
 import urllib.request
 import urllib.parse
 
+import subprocess
+import time
+import socket
+
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 
 BASE_URL = "http://127.0.0.1:8000"
+
+def is_server_running():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(1.0)
+        s.connect(("127.0.0.1", 8000))
+        s.close()
+        return True
+    except Exception:
+        return False
 
 def log_pass(msg):
     print(f"  [PASS] {msg}")
@@ -84,7 +98,7 @@ def http_post_multipart(path, fields, files, headers=None):
     except urllib.error.HTTPError as e:
         return e.code, json.loads(e.read().decode("utf-8")), dict(e.headers)
 
-def main():
+def run_all_tests():
     print("================================================================")
     print("STARTING ECANOTES.IN AUTOMATED VERIFICATION SUITE")
     print("================================================================")
@@ -446,10 +460,219 @@ def main():
     else:
         log_fail(f"Oversized direct publish should have been rejected with 400: status={status}, resp={direct_over_resp}")
 
+    # 19. Test Public UI Structure & Clean Hero / Removed Sections
+    print("\n19. Testing Public UI Structure, Clean Hero & Removed Sections...")
+    status, index_bytes, _ = http_get("/")
+    index_html = index_bytes.decode("utf-8")
+
+    # Navbar check
+    if "data-section=\"home\">HOME</a>" in index_html and \
+       "data-section=\"resourcesDisplaySection\">AVAILABLE RESOURCES</a>" in index_html and \
+       "data-section=\"reviews\">REVIEWS</a>" in index_html and \
+       "data-section=\"contribute\">CONTRIBUTION</a>" in index_html:
+        log_pass("Main navbar contains exactly the 4 required sections: HOME, AVAILABLE RESOURCES, REVIEWS, CONTRIBUTION")
+    else:
+        log_fail("Main navbar is missing one or more required sections")
+
+    # Removed sections check
+    if "What We Offer" not in index_html and "offerSection" not in index_html:
+        log_pass("'What We Offer' section completely removed from public UI")
+    else:
+        log_fail("'What We Offer' section still found in index.html")
+
+    if "Expanding Beyond 1st Year Soon" not in index_html and "expansion-banner" not in index_html:
+        log_pass("'Expanding Beyond 1st Year Soon' banner completely removed from public UI")
+    else:
+        log_fail("'Expanding Beyond 1st Year Soon' banner still found in index.html")
+
+    # Clean hero check
+    if "hero-clean" in index_html and "hero-title-clean" in index_html and "peer-hub-card" not in index_html:
+        log_pass("Clean, minimal, text-focused hero section active (bulky cards removed)")
+    else:
+        log_fail("Hero section does not match minimal text-focused specifications")
+
+    # Footer check
+    if "Created by Shlok Tiwadi" in index_html and "footer-bottom-centered" in index_html:
+        log_pass("Footer centered attribution 'Created by Shlok Tiwadi' present")
+    else:
+        log_fail("Footer centered attribution missing")
+
+    if ">LEGAL<" not in index_html and "LEGAL</h4>" not in index_html:
+        log_pass("LEGAL footer column completely removed")
+    else:
+        log_fail("LEGAL footer column still present in index.html")
+
+    # Branch filter wrap & load more button check
+    if "branchFilterWrap" in index_html and "loadMoreResourcesBtn" in index_html:
+        log_pass("Dynamic branch filter container & 'Load More Resources' button present in DOM")
+    else:
+        log_fail("Branch filter container or Load More button missing from index.html")
+
+    # 20. Test Admin Portal Branding & Streamlined UI
+    print("\n20. Testing Admin Portal Branding & Streamlined UI...")
+    status, admin_bytes, _ = http_get("/admin.html")
+    admin_html = admin_bytes.decode("utf-8")
+
+    if "ECANotes Admin Portal" in admin_html:
+        log_pass("Admin portal title & branding updated to 'ECANotes Admin Portal'")
+    else:
+        log_fail("Admin portal title does not contain 'ECANotes Admin Portal'")
+
+    if "Storage & SQL Online" not in admin_html:
+        log_pass("'Storage & SQL Online' indicator successfully removed")
+    else:
+        log_fail("'Storage & SQL Online' indicator still present in admin.html")
+
+    if "SQL Database Inspector" not in admin_html and "pane-sql" not in admin_html:
+        log_pass("'SQL Database Inspector' tab and pane successfully removed")
+    else:
+        log_fail("'SQL Database Inspector' still present in admin.html")
+
+    if "adminStatPublishedData" in admin_html:
+        log_pass("'Published Data' stat card present in admin dashboard")
+    else:
+        log_fail("'Published Data' stat card missing from admin.html")
+
+    if "directBranch" in admin_html:
+        log_pass("Direct Publisher includes branch selection dropdown")
+    else:
+        log_fail("Direct Publisher missing branch selection dropdown")
+
+    # 21. Test PDF Preview vs Download Header Differentiation
+    print("\n21. Testing PDF Inline Preview Stream vs Download Attachment...")
+    status, prev_bytes, prev_headers = http_get(f"/api/preview/{new_resource_id}")
+    prev_disp = prev_headers.get("content-disposition", "")
+    if status == 200 and "inline" in prev_disp and "attachment" not in prev_disp:
+        log_pass(f"GET /api/preview/ streams PDF with Content-Disposition: inline ('{prev_disp}')")
+    else:
+        log_fail(f"Preview endpoint did not return inline disposition: status={status}, disp={prev_disp}")
+
+    status, dl_bytes, dl_headers = http_get(f"/api/download/{new_resource_id}")
+    dl_disp = dl_headers.get("content-disposition", "")
+    if status == 200 and "attachment" in dl_disp:
+        log_pass(f"GET /api/download/ returns Content-Disposition: attachment ('{dl_disp}')")
+    else:
+        log_fail(f"Download endpoint did not return attachment disposition: status={status}, disp={dl_disp}")
+
+    # 22. Test Dynamic Branch Filtering in Resources API
+    print("\n22. Testing Dynamic Branch Filtering in Backend API...")
+    status, branch_res_raw, _ = http_get("/api/resources?year=2nd%20Year&branch=CSE")
+    cse_resources = json.loads(branch_res_raw.decode("utf-8"))
+    if all(r.get("branch") in ["CSE", "All"] for r in cse_resources):
+        log_pass(f"Filtering by branch=CSE returned {len(cse_resources)} resources, all with branch 'CSE' or 'All'")
+    else:
+        log_fail(f"Branch filtering returned mismatched branches: {cse_resources}")
+
+    # 23. Test Direct Publishing with Specific Branch
+    print("\n23. Testing Direct Publishing with Specific Branch...")
+    direct_branch_fields = {
+        "title": "Computer Networks TCP/IP Socket Programming",
+        "author": "Prof. A. K. Verma",
+        "year": "3rd Year",
+        "branch": "IT",
+        "subject": "Data Structures & Algorithms",
+        "type": "Practical Files",
+        "description": "Socket API client-server implementations in C/Python."
+    }
+    status, dir_branch_res, _ = http_post_multipart("/api/admin/publish-direct", direct_branch_fields, {}, auth_header)
+    if status == 200 and dir_branch_res.get("success"):
+        dir_res_id = dir_branch_res["id"]
+        log_pass(f"Direct published resource with branch 'IT' (id: {dir_res_id})")
+    else:
+        log_fail(f"Direct publishing with branch failed: {dir_branch_res}")
+
+    # Verify that query for branch=IT returns it
+    status, it_raw, _ = http_get("/api/resources?year=3rd%20Year&branch=IT")
+    it_resources = json.loads(it_raw.decode("utf-8"))
+    if any(r["id"] == dir_res_id and r.get("branch") == "IT" for r in it_resources):
+        log_pass(f"Direct published resource confirmed live in branch 'IT' search results")
+    else:
+        log_fail(f"Published resource not found under branch IT: {it_resources}")
+
+    # 24. Test Student Upload & Moderation with Branch
+    print("\n24. Testing Student Upload and Admin Moderation with Branch...")
+    cyb_upload_fields = {
+        "name": "Kavita Rao",
+        "email": "kavita@college.edu",
+        "year": "3rd Year",
+        "branch": "CYB",
+        "subject": "Cyber Security Fundamentals",
+        "type": "Notes",
+        "title": "Applied Cryptography and PKI Infrastructure Complete Notes"
+    }
+    status, cyb_upload_res, _ = http_post_multipart("/api/resources/upload", cyb_upload_fields, upload_files)
+    if status == 201 and cyb_upload_res.get("success"):
+        cyb_id = cyb_upload_res["id"]
+        log_pass(f"Student uploaded resource with branch 'CYB' (id: {cyb_id})")
+    else:
+        log_fail(f"Upload with branch failed: {cyb_upload_res}")
+
+    # Owner verifies with branch 'CYB'
+    cyb_verify_fields = {
+        "title": "Applied Cryptography and PKI Infrastructure Complete Notes (Verified)",
+        "author": "Kavita Rao",
+        "year": "3rd Year",
+        "branch": "CYB",
+        "subject": "Cyber Security Fundamentals",
+        "type": "Notes"
+    }
+    status, cyb_ver_res, _ = http_post_multipart(f"/api/admin/verify/{cyb_id}", cyb_verify_fields, {}, auth_header)
+    if status == 200 and cyb_ver_res.get("success"):
+        log_pass(f"Owner verified and published resource with branch 'CYB'")
+    else:
+        log_fail(f"Verification with branch failed: {cyb_ver_res}")
+
+    # Verify it is in public resources under CYB
+    status, cyb_pub_raw, _ = http_get("/api/resources?year=3rd%20Year&branch=CYB")
+    cyb_pub = json.loads(cyb_pub_raw.decode("utf-8"))
+    if any(r["id"] == cyb_id and r.get("branch") == "CYB" for r in cyb_pub):
+        log_pass("Verified CYB resource is live and discoverable under branch 'CYB'")
+    else:
+        log_fail("Verified CYB resource missing from branch query")
+
+    # 25. Test Dynamic Published Data Storage Stat Calculation
+    print("\n25. Testing Dynamic Published Data Storage Stat Calculation...")
+    status, admin_stats_raw, _ = http_get("/api/admin/stats", auth_header)
+    admin_stats = json.loads(admin_stats_raw.decode("utf-8"))
+    pub_data_str = admin_stats.get("publishedData")
+    pub_data_bytes = admin_stats.get("publishedDataBytes", 0)
+
+    if pub_data_str and any(unit in pub_data_str for unit in ["MB", "KB", "GB", "B"]) and pub_data_bytes > 0:
+        log_pass(f"Dynamic 'Published Data' stat successfully calculated: {pub_data_str} ({pub_data_bytes} bytes)")
+    else:
+        log_fail(f"Invalid published data stat: {admin_stats}")
+
     print("\n================================================================")
-    print("ALL 18 VERIFICATION TESTS PASSED FLAWLESSLY! 🚀")
-    print("Dynamic Subjects, Owner Portal & 4 MB File Limit fully verified!")
+    print("ALL 25 VERIFICATION TESTS PASSED FLAWLESSLY! 🚀")
+    print("All 9 Enhancements Fully Operational & Zero Regressions!")
     print("================================================================")
+
+def main():
+    server_proc = None
+    if not is_server_running():
+        print("Starting local server for automated tests...")
+        server_proc = subprocess.Popen(
+            [sys.executable, "-m", "uvicorn", "backend.server:app", "--host", "127.0.0.1", "--port", "8000"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        for _ in range(40):
+            if is_server_running():
+                break
+            time.sleep(0.25)
+        if not is_server_running():
+            log_fail("Could not start local server on port 8000")
+        print("Local server started successfully on port 8000.")
+
+    try:
+        run_all_tests()
+    finally:
+        if server_proc:
+            print("\nShutting down automated test server...")
+            server_proc.terminate()
+            server_proc.wait()
+            print("Test server terminated.")
 
 if __name__ == "__main__":
     main()
+

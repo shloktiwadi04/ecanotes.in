@@ -11,6 +11,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Live verified resources from the backend API (or fallback to db.js)
   let allResources = [];
 
+  // Resources pagination state (Show 6 initially, reveal +6 on click)
+  let visibleResourcesCount = 6;
+
   // Reviews pagination state (Show 4 initially, reveal +4 on click)
   let visibleReviewsCount = 4;
   let selectedRatingValue = 5;
@@ -19,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentFilters = {
     searchQuery: '',
     year: '1st Year',
+    branch: 'All',
     type: 'All',
     subject: 'All'
   };
@@ -38,12 +42,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const noResourcesState = document.getElementById('noResourcesState');
   const resetFiltersBtn = document.getElementById('resetFiltersBtn');
   const subjectFilter = document.getElementById('subjectFilter');
+  const branchFilter = document.getElementById('branchFilter');
+  const branchFilterWrap = document.getElementById('branchFilterWrap');
+  const moreResourcesWrap = document.getElementById('moreResourcesWrap');
+  const loadMoreResourcesBtn = document.getElementById('loadMoreResourcesBtn');
   const quickChips = document.querySelectorAll('.quick-chips .chip');
 
   const yearFilter = document.getElementById('yearFilter');
-  const exploreMaterialsBtn = document.getElementById('exploreMaterialsBtn');
   const heroFindResourcesBtn = document.getElementById('heroFindResourcesBtn');
   const heroContributeBtn = document.getElementById('heroContributeBtn');
+  const contribBranchGroup = document.getElementById('contribBranchGroup');
+  const contribBranch = document.getElementById('contribBranch');
 
   const reviewsGrid = document.getElementById('reviewsGrid');
   const moreReviewsWrap = document.getElementById('moreReviewsWrap');
@@ -132,6 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (clearSearchBtn) {
       clearSearchBtn.style.display = currentFilters.searchQuery ? 'block' : 'none';
     }
+    visibleResourcesCount = 6;
     renderResources();
 
     if (query.trim() && window.scrollY < 400) {
@@ -160,6 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (mobileSearchInput) mobileSearchInput.value = '';
       clearSearchBtn.style.display = 'none';
       currentFilters.searchQuery = '';
+      visibleResourcesCount = 6;
       renderResources();
       navSearchInput?.focus();
     });
@@ -170,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 4. ACTIVE NAVIGATION HIGHLIGHTING & SMOOTH SCROLL
   // =========================================================
   function updateActiveNavOnScroll() {
-    const sections = ['home', 'pyqs', 'assignments', 'about', 'reviews', 'contribute'];
+    const sections = ['home', 'resourcesDisplaySection', 'reviews', 'contribute'];
     const scrollPos = window.scrollY + 120;
 
     for (const sectionId of sections) {
@@ -180,7 +191,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const height = el.offsetHeight;
         if (scrollPos >= top && scrollPos < top + height) {
           navLinks.forEach(link => {
-            if (link.getAttribute('href') === `#${sectionId}`) {
+            const href = link.getAttribute('href');
+            const dataSec = link.getAttribute('data-section');
+            if (href === `#${sectionId}` || dataSec === sectionId) {
               link.classList.add('active');
             } else {
               link.classList.remove('active');
@@ -237,6 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
       chip.classList.add('active');
       const chipValue = chip.getAttribute('data-chip');
       currentFilters.type = chipValue;
+      visibleResourcesCount = 6;
       renderResources();
     });
   });
@@ -300,13 +314,31 @@ document.addEventListener('DOMContentLoaded', () => {
   const contribYearSelect = document.getElementById('contribYear');
   if (contribYearSelect) {
     contribYearSelect.addEventListener('change', (e) => {
-      updateContribSubjectSuggestions(e.target.value);
+      const selectedYear = e.target.value;
+      if (contribBranchGroup) {
+        if (selectedYear === '1st Year') {
+          contribBranchGroup.style.display = 'none';
+          if (contribBranch) contribBranch.value = 'All';
+        } else {
+          contribBranchGroup.style.display = 'block';
+        }
+      }
+      updateContribSubjectSuggestions(selectedYear);
     });
   }
 
   if (subjectFilter) {
     subjectFilter.addEventListener('change', (e) => {
       currentFilters.subject = e.target.value;
+      visibleResourcesCount = 6;
+      renderResources();
+    });
+  }
+
+  if (branchFilter) {
+    branchFilter.addEventListener('change', (e) => {
+      currentFilters.branch = e.target.value;
+      visibleResourcesCount = 6;
       renderResources();
     });
   }
@@ -314,7 +346,22 @@ document.addEventListener('DOMContentLoaded', () => {
   if (yearFilter) {
     yearFilter.addEventListener('change', async (e) => {
       currentFilters.year = e.target.value;
+      if (currentFilters.year === '1st Year') {
+        if (branchFilterWrap) branchFilterWrap.style.display = 'none';
+        if (branchFilter) branchFilter.value = 'All';
+        currentFilters.branch = 'All';
+      } else {
+        if (branchFilterWrap) branchFilterWrap.style.display = 'block';
+      }
+      visibleResourcesCount = 6;
       await updateSubjectFilterDropdown(currentFilters.year, false);
+      renderResources();
+    });
+  }
+
+  if (loadMoreResourcesBtn) {
+    loadMoreResourcesBtn.addEventListener('click', () => {
+      visibleResourcesCount += 6;
       renderResources();
     });
   }
@@ -324,6 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
       currentFilters = {
         searchQuery: '',
         year: 'All',
+        branch: 'All',
         type: 'All',
         subject: 'All'
       };
@@ -331,6 +379,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (mobileSearchInput) mobileSearchInput.value = '';
       if (clearSearchBtn) clearSearchBtn.style.display = 'none';
       if (yearFilter) yearFilter.value = 'All';
+      if (branchFilterWrap) branchFilterWrap.style.display = 'block';
+      if (branchFilter) branchFilter.value = 'All';
+      visibleResourcesCount = 6;
       await updateSubjectFilterDropdown('All', false);
       if (subjectFilter) subjectFilter.value = 'All';
       setActiveChip('All');
@@ -364,8 +415,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const matchesSubject = (res.subject || '').toLowerCase().includes(q);
         const matchesAuthor = (res.author || '').toLowerCase().includes(q);
         const matchesType = (res.type || '').toLowerCase().includes(q);
+        const matchesBranch = (res.branch || '').toLowerCase().includes(q);
         const matchesDesc = res.description ? res.description.toLowerCase().includes(q) : false;
-        if (!matchesTitle && !matchesSubject && !matchesAuthor && !matchesType && !matchesDesc) {
+        if (!matchesTitle && !matchesSubject && !matchesAuthor && !matchesType && !matchesBranch && !matchesDesc) {
           return false;
         }
       }
@@ -373,6 +425,13 @@ document.addEventListener('DOMContentLoaded', () => {
       // Year filter
       if (currentFilters.year !== 'All') {
         if (res.year && res.year !== currentFilters.year) {
+          return false;
+        }
+      }
+
+      // Branch filter (when branch filter is active)
+      if (currentFilters.branch && currentFilters.branch !== 'All') {
+        if (res.branch && res.branch !== 'All' && res.branch !== currentFilters.branch) {
           return false;
         }
       }
@@ -405,12 +464,28 @@ document.addEventListener('DOMContentLoaded', () => {
     if (filtered.length === 0) {
       resourcesGrid.innerHTML = '';
       if (noResourcesState) noResourcesState.style.display = 'block';
+      if (moreResourcesWrap) moreResourcesWrap.style.display = 'none';
       return;
     }
 
     if (noResourcesState) noResourcesState.style.display = 'none';
 
-    resourcesGrid.innerHTML = filtered.map(res => {
+    // Show only the 6 most recent resources initially, revealing subsequent with Load More
+    const visibleList = filtered.slice(0, visibleResourcesCount);
+
+    if (moreResourcesWrap) {
+      if (filtered.length > visibleResourcesCount) {
+        moreResourcesWrap.style.display = 'flex';
+        if (loadMoreResourcesBtn) {
+          const remaining = filtered.length - visibleResourcesCount;
+          loadMoreResourcesBtn.textContent = `Load More Resources (${remaining} remaining) ↓`;
+        }
+      } else {
+        moreResourcesWrap.style.display = 'none';
+      }
+    }
+
+    resourcesGrid.innerHTML = visibleList.map(res => {
       const typeClass = getTypePillClass(res.type);
       return `
         <article class="resource-card" data-id="${res.id}">
@@ -418,6 +493,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="resource-tag-row">
               <span class="resource-pill ${typeClass}">${escapeHTML(res.type)}</span>
               <span class="resource-year-tag">${escapeHTML(res.year || '1st Year')}</span>
+              ${res.branch && res.branch !== 'All' ? `<span class="resource-branch-tag" style="background:#EEF2FF;color:#4F46E5;padding:2px 8px;border-radius:999px;font-size:0.6875rem;font-weight:600;">${escapeHTML(res.branch)}</span>` : ''}
             </div>
 
             <h3 class="resource-card-title" title="${escapeHTML(res.title)}">
@@ -940,6 +1016,7 @@ document.addEventListener('DOMContentLoaded', () => {
         formData.append('name', name.value.trim());
         formData.append('email', email.value.trim());
         formData.append('year', year.value);
+        formData.append('branch', contribBranch ? contribBranch.value : 'All');
         formData.append('subject', subject.value.trim());
         formData.append('type', type.value);
         formData.append('title', title.value.trim());
@@ -1066,7 +1143,8 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast(`Opening preview: ${res.title}...`);
     try {
       if (res.id) {
-        window.open(`/api/download/${res.id}`, '_blank');
+        const previewUrl = typeof EcaAPI !== 'undefined' ? EcaAPI.getPreviewUrl(res.id) : `/api/preview/${res.id}`;
+        window.open(previewUrl, '_blank');
         return;
       }
       const stored = typeof EcaFileStore !== 'undefined' ? await EcaFileStore.getFile(res.id) : null;

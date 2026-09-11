@@ -170,6 +170,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (statVerified) statVerified.textContent = stats.verified || 0;
     if (statDownloads) statDownloads.textContent = (stats.totalDownloads || 0).toLocaleString();
 
+    const statPublishedData = document.getElementById('adminStatPublishedData');
+    if (statPublishedData) {
+      statPublishedData.textContent = stats.publishedData || '0 MB';
+    }
+
     if (statSubjects) {
       try {
         const allSubjs = await EcaAPI.getSubjects();
@@ -308,14 +313,31 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
             </div>
 
-            <!-- Row 2: Year, Subject, Type -->
-            <div class="mod-form-row three-col">
+            <!-- Row 2: Year, Branch, Subject, Type -->
+            <div class="mod-form-row four-col" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
               <div class="mod-input-group">
                 <label class="mod-label" for="year-${item.id}">
                   Academic Year:
                 </label>
                 <select id="year-${item.id}" class="mod-select">
                   ${yearOptions}
+                </select>
+              </div>
+
+              <div class="mod-input-group">
+                <label class="mod-label" for="branch-${item.id}">
+                  Branch:
+                </label>
+                <select id="branch-${item.id}" class="mod-select">
+                  <option value="All" ${(!item.branch || item.branch === 'All') ? 'selected' : ''}>All Branches</option>
+                  <option value="CSE" ${item.branch === 'CSE' ? 'selected' : ''}>CSE</option>
+                  <option value="IT" ${item.branch === 'IT' ? 'selected' : ''}>IT</option>
+                  <option value="CYB" ${item.branch === 'CYB' ? 'selected' : ''}>CYB</option>
+                  <option value="ECE" ${item.branch === 'ECE' ? 'selected' : ''}>ECE</option>
+                  <option value="EIC" ${item.branch === 'EIC' ? 'selected' : ''}>EIC</option>
+                  <option value="MECHANICAL" ${item.branch === 'MECHANICAL' ? 'selected' : ''}>MECHANICAL</option>
+                  <option value="CIVIL" ${item.branch === 'CIVIL' ? 'selected' : ''}>CIVIL</option>
+                  <option value="ELECTRICAL" ${item.branch === 'ELECTRICAL' ? 'selected' : ''}>ELECTRICAL</option>
                 </select>
               </div>
 
@@ -461,7 +483,7 @@ document.addEventListener('DOMContentLoaded', () => {
           window.open(blobUrl, '_blank');
           return;
         }
-        window.open(`/api/download/${id}`, '_blank');
+        window.open(EcaAPI.getPreviewUrl(id), '_blank');
       });
     });
 
@@ -489,6 +511,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const titleInput = document.getElementById(`title-${id}`);
         const authorInput = document.getElementById(`author-${id}`);
         const yearSelect = document.getElementById(`year-${id}`);
+        const branchSelect = document.getElementById(`branch-${id}`);
         const subjectSelect = document.getElementById(`subject-${id}`);
         const customSubjectInput = document.getElementById(`custom-subject-${id}`);
         const typeSelect = document.getElementById(`type-${id}`);
@@ -496,6 +519,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const finalTitle = titleInput ? titleInput.value.trim() : '';
         const finalAuthor = authorInput ? authorInput.value.trim() : '';
         const finalYear = yearSelect ? yearSelect.value : '1st Year';
+        const finalBranch = branchSelect ? branchSelect.value : 'All';
         let finalSubject = subjectSelect ? subjectSelect.value : 'Engineering Mathematics';
         if (finalSubject === '__custom__' && customSubjectInput) {
           finalSubject = customSubjectInput.value.trim() || 'General Engineering';
@@ -515,6 +539,7 @@ document.addEventListener('DOMContentLoaded', () => {
           formData.append('title', finalTitle);
           formData.append('author', finalAuthor || 'EcaNotes Contributor');
           formData.append('year', finalYear);
+          formData.append('branch', finalBranch);
           formData.append('subject', finalSubject);
           formData.append('type', finalType);
 
@@ -576,7 +601,10 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="table-resource-title">${escapeHTML(r.title)}</div>
           <div class="table-resource-meta">${escapeHTML(r.file_name || 'document.pdf')} · ${escapeHTML(r.file_size || r.fileSize || '4.0 MB')}</div>
         </td>
-        <td><span class="badge-year">${escapeHTML(r.year || '1st Year')}</span></td>
+        <td>
+          <span class="badge-year">${escapeHTML(r.year || '1st Year')}</span>
+          ${r.branch && r.branch !== 'All' ? `<span class="badge-type" style="background:#EFF6FF;color:#2563EB;margin-left:4px;font-size:0.75rem;">${escapeHTML(r.branch)}</span>` : ''}
+        </td>
         <td>${escapeHTML(r.subject)}</td>
         <td><span class="badge-type">${escapeHTML(r.type)}</span></td>
         <td>${escapeHTML(r.author)}</td>
@@ -600,7 +628,7 @@ document.addEventListener('DOMContentLoaded', () => {
     verifiedTableBody.querySelectorAll('.btn-table-action.preview').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-id');
-        window.open(`/api/download/${id}`, '_blank');
+        window.open(EcaAPI.getPreviewUrl(id), '_blank');
       });
     });
 
@@ -760,10 +788,14 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       try {
+        const directBranch = document.getElementById('directBranch');
+        const branch = directBranch ? directBranch.value : 'All';
+
         const formData = new FormData();
         formData.append('title', title);
         formData.append('author', author);
         formData.append('year', year);
+        formData.append('branch', branch);
         formData.append('subject', subject);
         formData.append('type', type);
         formData.append('description', desc);
