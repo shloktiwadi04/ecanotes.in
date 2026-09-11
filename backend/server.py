@@ -24,7 +24,7 @@ sys.path.insert(0, str(BASE_DIR))
 
 from backend.database import (
     init_db, get_connection, hash_password, verify_password,
-    DATA_DIR, UPLOADS_DIR, ensure_subject
+    DATA_DIR, UPLOADS_DIR, ensure_subject, get_db_status
 )
 from backend.storage import create_sample_pdf
 
@@ -996,8 +996,17 @@ def get_admin_stats(admin=Depends(get_current_admin)):
         "pendingReviews": pending_reviews,
         "publishedReviews": published_reviews,
         "publishedData": pub_str,
-        "publishedDataBytes": total_published_bytes
+        "publishedDataBytes": total_published_bytes,
+        "dbStatus": get_db_status()
     }
+
+
+@app.get("/api/db-status")
+def check_database_status():
+    """
+    Public diagnostic endpoint returning active database engine and cloud persistence status.
+    """
+    return get_db_status()
 
 
 @app.get("/api/admin/sql")

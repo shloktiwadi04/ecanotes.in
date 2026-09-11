@@ -175,6 +175,23 @@ document.addEventListener('DOMContentLoaded', () => {
       statPublishedData.textContent = stats.publishedData || '0 MB';
     }
 
+    const dbStatusDot = document.getElementById('adminDbStatusDot');
+    const dbStatusText = document.getElementById('adminDbStatusText');
+    if (stats.dbStatus && dbStatusText && dbStatusDot) {
+      if (stats.dbStatus.is_cloud_persistent) {
+        dbStatusDot.style.background = '#10b981';
+        dbStatusDot.style.boxShadow = '0 0 8px #10b981';
+        dbStatusText.textContent = 'Supabase Cloud PostgreSQL Active (100% Permanent Storage)';
+        dbStatusText.style.color = '#10b981';
+      } else {
+        dbStatusDot.style.background = '#f59e0b';
+        dbStatusDot.style.boxShadow = '0 0 8px #f59e0b';
+        const errHint = stats.dbStatus.last_error ? ` (Check DATABASE_URL: ${stats.dbStatus.last_error.slice(0, 60)}...)` : ' (No DATABASE_URL configured)';
+        dbStatusText.textContent = `Local SQLite Active — Ephemeral on Render${errHint}`;
+        dbStatusText.style.color = '#f59e0b';
+      }
+    }
+
     if (statSubjects) {
       try {
         const allSubjs = await EcaAPI.getSubjects();

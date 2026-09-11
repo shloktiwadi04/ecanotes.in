@@ -15,6 +15,7 @@ import sqlite3
 import hashlib
 import secrets
 import time
+from urllib.parse import urlparse, unquote
 from datetime import datetime
 from pathlib import Path
 
@@ -34,6 +35,9 @@ UPLOADS_DIR = DATA_DIR / "uploads"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
+LAST_DB_ERROR = None
+ACTIVE_DB_TYPE = "sqlite"
+
 
 def get_database_url() -> str | None:
     url = os.environ.get("DATABASE_URL")
@@ -45,8 +49,80 @@ def get_database_url() -> str | None:
     return url
 
 
+def parse_db_url_targets(raw_url: str):
+    """
+    Parses DATABASE_URL and generates connection targets.
+    Specifically handles Supabase IPv6 limitation on Render by generating IPv4 pooler targets.
+    Also handles passwords with special characters (@, #, etc.) cleanly via direct keyword parameters.
+    """
+    if not raw_url:
+        return []
+
+    url = raw_url.strip()
+    if url.startswith("postgres://"):
+        url = "postgresql://" + url[len("postgres://"):]
+
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return []
+
+    orig_host = parsed.hostname or ""
+    port = parsed.port or 5432
+    user = parsed.username or "postgres"
+    if parsed.password:
+        password = unquote(parsed.password)
+    else:
+        password = ""
+    dbname = (parsed.path or "/postgres").lstrip("/") or "postgres"
+
+    targets = []
+
+    # If Supabase direct host db.<ref>.supabase.co, add IPv4 poolers first
+    # Render free tier does NOT support IPv6, so db.xxxx.supabase.co fails.
+    m = re.match(r"^db\.([a-z0-9]+)\.supabase\.co$", orig_host, re.IGNORECASE)
+    if m:
+        ref = m.group(1)
+        pooler_user = user if "." in user else f"postgres.{ref}"
+        # Try ap-south-1 (Mumbai) first as default project region, then other major Supabase regions
+        for reg in ["ap-south-1", "ap-southeast-1", "us-east-1", "eu-central-1"]:
+            for p in [5432, 6543]:
+                targets.append({
+                    "host": f"aws-0-{reg}.pooler.supabase.com",
+                    "port": p,
+                    "user": pooler_user,
+                    "password": password,
+                    "dbname": dbname,
+                    "sslmode": "require",
+                    "description": f"Supabase IPv4 Pooler ({reg}:{p})"
+                })
+
+    # Direct target as specified in URL
+    targets.append({
+        "host": orig_host,
+        "port": port,
+        "user": user,
+        "password": password,
+        "dbname": dbname,
+        "sslmode": "require",
+        "description": f"Direct Host ({orig_host}:{port})"
+    })
+
+    return targets
+
+
 def is_postgres() -> bool:
-    return bool(get_database_url() and HAS_PSYCOPG2)
+    return ACTIVE_DB_TYPE == "postgresql"
+
+
+def get_db_status() -> dict:
+    url = get_database_url()
+    return {
+        "active_database": ACTIVE_DB_TYPE,
+        "is_cloud_persistent": ACTIVE_DB_TYPE == "postgresql",
+        "has_database_url": bool(url),
+        "last_error": LAST_DB_ERROR
+    }
 
 
 class PostgresCursor:
@@ -128,14 +204,33 @@ class PostgresConnection:
 
 
 def get_connection():
-    db_url = get_database_url()
-    if db_url and HAS_PSYCOPG2:
-        try:
-            raw_conn = psycopg2.connect(db_url)
-            return PostgresConnection(raw_conn)
-        except Exception as err:
-            print(f"[DB] PostgreSQL connection error: {err}. Falling back to SQLite.")
+    global LAST_DB_ERROR, ACTIVE_DB_TYPE
+    raw_url = get_database_url()
+    if raw_url and HAS_PSYCOPG2:
+        targets = parse_db_url_targets(raw_url)
+        last_err = None
+        for t in targets:
+            try:
+                raw_conn = psycopg2.connect(
+                    host=t["host"],
+                    port=t["port"],
+                    user=t["user"],
+                    password=t["password"],
+                    dbname=t["dbname"],
+                    sslmode=t.get("sslmode", "require"),
+                    connect_timeout=6
+                )
+                LAST_DB_ERROR = None
+                ACTIVE_DB_TYPE = "postgresql"
+                return PostgresConnection(raw_conn)
+            except Exception as err:
+                last_err = err
+                continue
 
+        LAST_DB_ERROR = str(last_err)
+        print(f"[DB] All PostgreSQL targets failed. Last error: {last_err}. Falling back to SQLite.")
+
+    ACTIVE_DB_TYPE = "sqlite"
     conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
