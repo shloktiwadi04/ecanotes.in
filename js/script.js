@@ -209,12 +209,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // =========================================================
   // 5. HERO & SHORTCUT ACTIONS
   // =========================================================
-  if (exploreMaterialsBtn) {
-    exploreMaterialsBtn.addEventListener('click', () => {
-      document.getElementById('resourcesDisplaySection')?.scrollIntoView({ behavior: 'smooth' });
-    });
-  }
-
   if (heroFindResourcesBtn) {
     heroFindResourcesBtn.addEventListener('click', () => {
       document.getElementById('resourcesDisplaySection')?.scrollIntoView({ behavior: 'smooth' });
